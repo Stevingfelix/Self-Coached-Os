@@ -1,0 +1,2998 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+<title>Self-Coached OS — Goal-driven training</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0a0a0a" />
+<meta name="application-name" content="SC OS" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="SC OS" />
+<meta name="mobile-web-app-capable" content="yes" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.47.0/iconfont/tabler-icons.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#fafafa; --surface:#ffffff; --surface-2:#f5f5f5;
+    --border:#e7e7e7; --border-strong:#d4d4d4;
+    --ink:#0a0a0a; --ink-2:#404040; --muted:#737373;
+    --accent:#dc2626; --accent-2:#991b1b; --accent-soft:#fef2f2;
+    --good:#16a34a; --warn:#ca8a04; --info:#2563eb;
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 1px 1px rgba(0,0,0,.02);
+    --radius:10px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.45;
+    -webkit-tap-highlight-color:transparent;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  @media (display-mode: standalone){
+    /* App-installed mode tweaks */
+    .app{padding-top:8px}
+  }
+  /* ===== Mobile-native polish ===== */
+  /* Splash screen */
+  .splash-screen{position:fixed;inset:0;background:#0a0a0a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;
+    transition:opacity .5s ease, visibility .5s;visibility:visible}
+  .splash-screen.gone{opacity:0;visibility:hidden;pointer-events:none}
+  .splash-logo{width:96px;height:96px;background:#0a0a0a;border-radius:24px;display:flex;align-items:center;
+    justify-content:center;font-size:42px;font-weight:700;color:#fff;position:relative;border:2px solid #1a1a1a;
+    animation:scalein .9s cubic-bezier(.16,1,.3,1) both}
+  .splash-logo::after{content:"";position:absolute;width:14px;height:14px;background:#dc2626;border-radius:50%;top:14px;right:14px;animation:pulse 2s infinite}
+  @keyframes scalein{0%{opacity:0;transform:scale(.6)}60%{opacity:1;transform:scale(1.05)}100%{transform:scale(1)}}
+  @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.2);opacity:.8}}
+  .splash-screen h1{font-size:1.4rem;font-weight:600;margin:22px 0 4px;letter-spacing:-.01em;color:#fff;animation:fadein .8s .35s both}
+  .splash-screen p{font-size:.85rem;color:#a3a3a3;margin:0;animation:fadein .8s .5s both}
+  .splash-screen .loader{margin-top:28px;width:140px;height:3px;background:#1a1a1a;border-radius:999px;overflow:hidden;animation:fadein .8s .7s both}
+  .splash-screen .loader > div{height:100%;background:#dc2626;width:0;animation:fill 1.2s .85s forwards}
+  @keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @keyframes fill{to{width:100%}}
+
+  /* Tab transitions */
+  section.tab{animation:scrIn .28s ease both}
+  @keyframes scrIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  /* Button press feedback */
+  .btn,.chip,.day-pill{transition:transform .12s, background .12s, color .12s, border-color .12s}
+  .btn:active,.chip:active,.day-pill:active{transform:scale(.97)}
+
+  /* Coach card typing cursor */
+  .coach-card .note.typing::after{content:"▍";color:var(--accent);margin-left:2px;animation:cursor 1s infinite}
+  @keyframes cursor{50%{opacity:0}}
+
+  /* Toast from top on mobile */
+  @media (max-width:760px){
+    .toast{top:max(20px, env(safe-area-inset-top));bottom:auto;transform:translateX(-50%) translateY(-80px)}
+    .toast.show{transform:translateX(-50%) translateY(0)}
+  }
+
+  /* Modal slide-up from bottom on mobile */
+  @media (max-width:760px){
+    .modal-bg{align-items:flex-end;padding:0}
+    .modal{border-radius:18px 18px 0 0;max-width:100%;width:100%;
+      animation:slideUp .35s cubic-bezier(.16,1,.3,1) both;
+      max-height:90vh;overflow-y:auto;padding-bottom:max(20px, env(safe-area-inset-bottom))}
+    .modal-bg:not(.open) .modal{animation:none}
+  }
+  @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+  /* Mobile bottom tab bar — overlays the desktop top tabs */
+  .mobile-tabbar{display:none}
+  @media (max-width:760px){
+    nav.tabs{display:none}
+    .mobile-tabbar{display:flex;position:fixed;bottom:0;left:0;right:0;height:62px;background:#fff;
+      border-top:1px solid var(--border);z-index:80;
+      padding-bottom:env(safe-area-inset-bottom)}
+    .mobile-tabbar button{flex:1;background:transparent;border:0;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;gap:2px;color:var(--muted);cursor:pointer;font-family:inherit;padding:6px 0}
+    .mobile-tabbar button.on{color:var(--accent)}
+    .mobile-tabbar .ti{font-size:20px}
+    .mobile-tabbar .tl{font-size:10px;font-weight:500}
+    .app{padding-bottom:80px}
+    header.top{flex-wrap:wrap}
+    header.top .brand .sub{display:none}
+    .top-actions{font-size:.85rem}
+    /* Smaller, denser cards on mobile */
+    .card{padding:12px}
+    h1{font-size:1.25rem}
+    h2{font-size:1rem}
+  }
+
+  /* Mobile more-menu modal */
+  .more-sheet{padding:16px}
+  .more-sheet .item{display:flex;align-items:center;gap:12px;padding:14px 10px;border-bottom:1px solid var(--border);
+    cursor:pointer;font-size:.95rem;color:var(--ink);font-weight:500}
+  .more-sheet .item:last-child{border-bottom:none}
+  .more-sheet .item .ti{font-size:20px;color:var(--muted)}
+
+  /* PR moment celebration overlay */
+  .pr-celebrate{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;
+    z-index:200;animation:fadein .3s ease both}
+  .pr-celebrate.on{display:flex}
+  .pr-celebrate .card-pr{background:#fff;border-radius:18px;padding:30px 26px;text-align:center;max-width:340px;width:90%;
+    animation:popIn .5s cubic-bezier(.16,1.3,.5,1) both;border-top:6px solid var(--accent)}
+  .pr-celebrate h1{font-size:2.2rem;color:var(--accent);margin:0 0 8px;letter-spacing:-.02em;font-weight:700}
+  .pr-celebrate p{margin:0 0 6px;color:var(--ink)}
+  .pr-celebrate .ex{font-weight:600;color:var(--ink);font-size:1.1rem}
+  .pr-celebrate .e1{color:var(--muted);font-size:.9rem;margin:6px 0 18px}
+  @keyframes popIn{0%{opacity:0;transform:scale(.7)}60%{opacity:1;transform:scale(1.04)}100%{transform:scale(1)}}
+  a{color:var(--accent);text-decoration:none}
+  button{font-family:inherit}
+  h1,h2,h3,h4{margin:0 0 .5rem;font-weight:600;letter-spacing:-.01em}
+  h1{font-size:1.5rem} h2{font-size:1.1rem}
+  h3{font-size:.85rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+  hr{border:none;border-top:1px solid var(--border);margin:1.25rem 0}
+  small,.muted{color:var(--muted)}
+  .app{max-width:1300px;margin:0 auto;padding:0 16px 80px}
+  header.top{display:flex;align-items:center;justify-content:space-between;
+    padding:18px 4px;border-bottom:1px solid var(--border);margin-bottom:18px;flex-wrap:wrap;gap:10px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.02em;font-size:1.05rem}
+  .brand .dot{width:10px;height:10px;background:var(--accent);border-radius:2px}
+  .brand .sub{color:var(--muted);font-weight:500;font-size:.85rem;margin-left:8px}
+  .top-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  nav.tabs{display:flex;gap:2px;flex-wrap:wrap;padding:4px;background:var(--surface);
+    border:1px solid var(--border);border-radius:var(--radius);margin-bottom:18px;box-shadow:var(--shadow)}
+  nav.tabs button{background:transparent;border:0;padding:9px 14px;border-radius:8px;color:var(--ink-2);
+    cursor:pointer;font-size:.88rem;font-weight:500}
+  nav.tabs button:hover{background:var(--surface-2)}
+  nav.tabs button.active{background:var(--ink);color:#fff}
+  .grid{display:grid;gap:14px}
+  .grid.c2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .grid.c4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .grid.c5{grid-template-columns:repeat(5,minmax(0,1fr))}
+  @media (max-width:980px){.grid.c4,.grid.c5{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.c3{grid-template-columns:1fr 1fr}}
+  @media (max-width:620px){.grid.c2,.grid.c3,.grid.c4,.grid.c5{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:16px;box-shadow:var(--shadow)}
+  .card.tight{padding:12px} .card.flush{padding:0;overflow:hidden}
+  .card .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap}
+  .stat .label{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+  .stat .num{font-size:1.7rem;font-weight:700;letter-spacing:-.02em;line-height:1.1;margin-top:4px}
+  .stat .delta{font-size:.78rem;color:var(--muted);margin-top:4px}
+  .delta.up{color:var(--good)} .delta.down{color:var(--accent)}
+  label.inline{display:flex;gap:8px;align-items:center;font-size:.85rem;color:var(--ink-2)}
+  input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--border-strong);border-radius:7px;
+    background:#fff;color:var(--ink);font-size:.9rem;font-family:inherit}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+  textarea{min-height:60px;resize:vertical}
+  .field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+  .field label{font-size:.74rem;color:var(--muted);font-weight:500}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row > .field{flex:1;min-width:120px}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:var(--ink);
+    color:#fff;border:0;border-radius:7px;cursor:pointer;font-size:.85rem;font-weight:500}
+  .btn:hover{background:#222}
+  .btn.ghost{background:transparent;color:var(--ink-2);border:1px solid var(--border-strong)}
+  .btn.ghost:hover{background:var(--surface-2)}
+  .btn.danger{background:var(--accent)} .btn.danger:hover{background:var(--accent-2)}
+  .btn.sm{padding:5px 9px;font-size:.78rem}
+  .btn.lg{padding:11px 18px;font-size:.95rem}
+  .btn.full{width:100%;justify-content:center}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+  th{font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);background:var(--surface-2)}
+  tr:last-child td{border-bottom:none}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr.heavy td{background:#fff7f7}
+  tr.deload td{background:#fefce8}
+  tr.peak td{background:#f0fdf4}
+  tr.test td{background:#eff6ff}
+  .pill{display:inline-block;padding:2px 8px;font-size:.7rem;border-radius:999px;background:var(--surface-2);
+    color:var(--ink-2);font-weight:600;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
+  .pill.red{background:var(--accent-soft);color:var(--accent)}
+  .pill.green{background:#ecfdf5;color:var(--good)}
+  .pill.yellow{background:#fefce8;color:var(--warn)}
+  .pill.blue{background:#eff6ff;color:var(--info)}
+  .pill.purple{background:#f5f3ff;color:#7c3aed}
+  .chart-wrap{position:relative;height:220px}
+  .chart-wrap.tall{height:280px}
+  .checkbox{width:16px;height:16px;border:1.5px solid var(--border-strong);border-radius:4px;
+    cursor:pointer;display:inline-block;vertical-align:middle;background:#fff}
+  .checkbox.checked{background:var(--accent);border-color:var(--accent);position:relative}
+  .checkbox.checked::after{content:"";position:absolute;left:4px;top:1px;width:5px;height:9px;
+    border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+  .day-pill,.chip{padding:5px 11px;border-radius:999px;font-size:.78rem;border:1px solid var(--border-strong);
+    cursor:pointer;background:#fff;color:var(--ink-2)}
+  .day-pill.active,.chip.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .chip.red.active{background:var(--accent);border-color:var(--accent)}
+  .scroll-x{overflow-x:auto}
+  .matrix{font-size:.72rem;min-width:580px}
+  .matrix th,.matrix td{padding:6px 8px;text-align:center}
+  .matrix td.hl{background:var(--accent-soft);font-weight:600;color:var(--accent)}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;
+    padding:10px 14px;border-radius:8px;font-size:.85rem;box-shadow:0 6px 24px rgba(0,0,0,.18);
+    opacity:0;pointer-events:none;transition:opacity .2s;z-index:200}
+  .toast.show{opacity:1}
+  .empty{text-align:center;padding:24px;color:var(--muted);border:1px dashed var(--border-strong);border-radius:8px}
+  /* Inline help/glossary */
+  .help{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;
+    background:var(--surface-2);color:var(--muted);font-size:.65rem;font-weight:700;cursor:help;
+    margin-left:4px;vertical-align:middle;line-height:1;border:1px solid var(--border)}
+  .help:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .gloss-card{border:1px solid var(--border);border-radius:8px;padding:14px;background:#fff;margin-bottom:10px}
+  .gloss-card .t{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px}
+  .gloss-card h4{margin:0;font-size:1rem}
+  .gloss-card .full{color:var(--muted);font-size:.78rem;margin-top:1px}
+  .gloss-card .short{font-weight:500;color:var(--ink);margin:6px 0 4px}
+  .gloss-card .def{color:var(--ink-2);font-size:.88rem}
+  .gloss-card .ex{margin-top:6px;padding:8px 10px;background:var(--surface-2);border-radius:6px;font-size:.85rem;color:var(--ink-2)}
+  .gloss-card .see{margin-top:6px;font-size:.78rem;color:var(--muted)}
+  .gloss-card .see a{cursor:pointer}
+  .gloss-cat{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600;margin:18px 0 8px}
+  .gloss-cat:first-child{margin-top:0}
+  /* Coach voice card */
+  .coach-card{background:linear-gradient(135deg,#fff,#fafafa);border:1px solid var(--border);border-radius:10px;
+    padding:14px 16px;margin-bottom:12px;display:flex;gap:12px;align-items:flex-start}
+  .coach-card .avatar{width:36px;height:36px;border-radius:50%;background:var(--ink);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0}
+  .coach-card .body{flex:1}
+  .coach-card .name{font-weight:600;font-size:.85rem;color:var(--ink)}
+  .coach-card .note{color:var(--ink-2);font-size:.92rem;margin-top:2px;line-height:1.5}
+  .coach-card .meta{color:var(--muted);font-size:.74rem;margin-top:4px}
+  /* Readiness modal */
+  .ready-q{margin:14px 0}
+  .ready-q .lbl{font-weight:600;font-size:.92rem;margin-bottom:6px;display:flex;justify-content:space-between}
+  .ready-q .lbl .v{color:var(--accent);font-weight:700}
+  .ready-row{display:flex;gap:6px}
+  .ready-row button{flex:1;padding:10px 0;border:1px solid var(--border-strong);background:#fff;
+    border-radius:7px;cursor:pointer;font-weight:600;color:var(--ink-2)}
+  .ready-row button.sel{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .ready-row.bad button.sel{background:var(--accent);border-color:var(--accent)}
+  .ready-row.good button.sel{background:var(--good);border-color:var(--good)}
+  /* Missed session banner */
+  .missed-banner{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;margin-bottom:12px}
+  .missed-banner h4{margin:0 0 4px;color:#92400e;font-size:.95rem}
+  .missed-banner p{margin:0 0 8px;color:#78350f;font-size:.85rem}
+  .missed-banner .actions{display:flex;gap:6px;flex-wrap:wrap}
+  /* PR moment */
+  .pr-moment{background:linear-gradient(135deg,#fef2f2,#fff);border:1px solid #fecaca;border-radius:10px;
+    padding:12px 14px;margin:8px 0;display:flex;align-items:center;gap:10px}
+  .pr-moment .icon{font-size:1.4rem}
+  .pr-moment .txt{flex:1;font-size:.9rem;color:var(--ink)}
+  .pr-moment .txt b{color:var(--accent)}
+  .pr-list-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;
+    border-bottom:1px solid var(--border);font-size:.85rem}
+  .pr-list-item:last-child{border-bottom:none}
+  /* Adjustment badge on a set row */
+  .adj-pill{display:inline-block;padding:1px 7px;font-size:.65rem;border-radius:6px;font-weight:700;letter-spacing:.04em}
+  .adj-pill.down{background:var(--accent-soft);color:var(--accent)}
+  .adj-pill.up{background:#ecfdf5;color:var(--good)}
+  /* Readiness sparkline */
+  .ready-spark{display:flex;align-items:flex-end;gap:3px;height:40px;margin-top:6px}
+  .ready-spark div{flex:1;background:var(--accent);border-radius:2px 2px 0 0;min-height:2px;opacity:.7}
+  .ready-spark div.lo{background:var(--accent)} .ready-spark div.mid{background:var(--warn)} .ready-spark div.hi{background:var(--good)}
+  /* modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(15,15,15,.45);display:none;align-items:flex-start;
+    justify-content:center;z-index:100;padding:40px 16px;overflow-y:auto}
+  .modal-bg.open{display:flex}
+  .modal{background:#fff;border-radius:14px;max-width:680px;width:100%;padding:24px;box-shadow:0 24px 64px rgba(0,0,0,.2)}
+  .modal h1{font-size:1.4rem}
+  /* priority picker */
+  .prio{display:grid;grid-template-columns:120px repeat(4,1fr);gap:6px;align-items:center;margin:6px 0}
+  .prio .nm{font-weight:600;font-size:.88rem}
+  .prio button{padding:7px 4px;font-size:.74rem;border:1px solid var(--border-strong);background:#fff;
+    border-radius:6px;cursor:pointer;color:var(--ink-2);font-weight:500}
+  .prio button.sel-priority{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .prio button.sel-grow{background:#0a0a0a;color:#fff;border-color:#0a0a0a}
+  .prio button.sel-maint{background:#737373;color:#fff;border-color:#737373}
+  .prio button.sel-skip{background:#f5f5f5;color:#a3a3a3}
+  /* progress bar */
+  .progbar{background:var(--surface-2);border-radius:999px;height:8px;overflow:hidden}
+  .progbar > div{height:100%;background:var(--accent);border-radius:999px;transition:width .3s}
+  /* volume meter */
+  .vol-bar{display:flex;align-items:center;gap:8px;margin:4px 0}
+  .vol-bar .nm{width:90px;font-size:.78rem;color:var(--ink-2)}
+  .vol-bar .track{flex:1;background:var(--surface-2);height:8px;border-radius:999px;position:relative;overflow:hidden}
+  .vol-bar .fill{height:100%;background:var(--accent);border-radius:999px}
+  .vol-bar .fill.maint{background:#737373}
+  .vol-bar .fill.grow{background:#0a0a0a}
+  .vol-bar .v{font-size:.74rem;color:var(--muted);width:64px;text-align:right;font-variant-numeric:tabular-nums}
+  /* session log row */
+  .set-row{display:grid;grid-template-columns:30px 1fr 1fr 1fr auto;gap:8px;align-items:center;margin:4px 0}
+  .set-row input{padding:5px 8px;font-size:.85rem}
+  .set-row .si{font-size:.78rem;color:var(--muted);text-align:center}
+  .session-ex{border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;background:#fff}
+  .session-ex .ex-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px}
+  .session-ex h4{margin:0;font-size:.95rem}
+  .session-ex .meta{font-size:.78rem;color:var(--muted)}
+  @media print{nav.tabs,.top-actions,.btn{display:none!important}.card{break-inside:avoid;box-shadow:none}}
+</style>
+</head>
+<body>
+
+<!-- Splash screen — shown on cold load -->
+<div class="splash-screen" id="splash">
+  <div class="splash-logo">SC</div>
+  <h1>Self-Coached OS</h1>
+  <p>Goal-driven training</p>
+  <div class="loader"><div></div></div>
+</div>
+
+<!-- PR celebration overlay -->
+<div class="pr-celebrate" id="prCelebrate" onclick="closePr()">
+  <div class="card-pr">
+    <h1>PR!</h1>
+    <p>You just hit a new personal record on</p>
+    <div class="ex" id="prExName">—</div>
+    <div class="e1" id="prE1">—</div>
+    <button class="btn full" onclick="closePr()">Nice. Keep going.</button>
+  </div>
+</div>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <span class="dot"></span> Self-Coached OS
+      <span class="sub">— Goal-driven training</span>
+    </div>
+    <div class="top-actions">
+      <span id="goalChip" class="pill red">No goal set</span>
+      <span class="muted" id="unitLabel">kg</span>
+      <button class="btn ghost sm" onclick="openSetup(true)">Edit setup</button>
+      <button class="btn ghost sm" onclick="exportData()">Export</button>
+      <button class="btn ghost sm" onclick="importDataPrompt()">Import</button>
+      <button class="btn ghost sm" onclick="resetData()">Reset</button>
+      <button class="btn sm" id="installBtn" style="display:none" onclick="installApp()">Install app</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="dash" class="active">Dashboard</button>
+    <button data-tab="plan">Plan</button>
+    <button data-tab="today">Today</button>
+    <button data-tab="log">Log</button>
+    <button data-tab="nutrition">Nutrition</button>
+    <button data-tab="tools">Tools</button>
+    <button data-tab="library">Library</button>
+    <button data-tab="glossary">Glossary</button>
+    <button data-tab="setup">Setup</button>
+  </nav>
+
+  <!-- Mobile bottom tab bar (hidden on desktop) -->
+  <nav class="mobile-tabbar" id="mobileTabbar">
+    <button data-tab="dash" class="on" onclick="goto('dash')"><i class="ti ti-layout-dashboard"></i><span class="tl">Home</span></button>
+    <button data-tab="today" onclick="goto('today')"><i class="ti ti-flame"></i><span class="tl">Today</span></button>
+    <button data-tab="plan" onclick="goto('plan')"><i class="ti ti-calendar"></i><span class="tl">Plan</span></button>
+    <button data-tab="log" onclick="goto('log')"><i class="ti ti-pencil"></i><span class="tl">Log</span></button>
+    <button onclick="openMoreSheet()"><i class="ti ti-menu-2"></i><span class="tl">More</span></button>
+  </nav>
+
+  <!-- DASHBOARD -->
+  <section class="tab" id="tab-dash">
+    <div class="grid c4" style="margin-bottom:14px">
+      <div class="card stat"><div class="label">Goal</div><div class="num" id="dGoal" style="font-size:1.2rem">—</div><div class="delta" id="dGoalSub">Set up your plan to start</div></div>
+      <div class="card stat"><div class="label">Current Phase <span class="help" title="Mesocycle — a training block of ~4 weeks with one theme (Accumulation, Intensification, Specialization, etc)." onclick="scrollToTerm('Mesocycle')">?</span></div><div class="num" id="dPhase" style="font-size:1.2rem">—</div><div class="delta" id="dPhaseSub">—</div></div>
+      <div class="card stat"><div class="label">Week</div><div class="num" id="dWeek">—</div><div class="delta" id="dWeekSub">of 24</div></div>
+      <div class="card stat"><div class="label">Adherence <span class="help" title="Sessions logged ÷ sessions scheduled since start. Rest days don't count against you." onclick="scrollToTerm('RPE')">?</span></div><div class="num" id="dAdherence">—</div><div class="delta" id="dAdherenceSub">—</div></div>
+    </div>
+
+    <div class="grid c2" style="margin-bottom:14px">
+      <div class="card">
+        <div class="hdr"><h2>Recent PRs</h2><span class="muted" style="font-size:.78rem" id="dPrCount">—</span></div>
+        <div id="dPrList"></div>
+      </div>
+      <div class="card">
+        <div class="hdr"><h2>Readiness — last 14 days</h2><span class="muted" style="font-size:.78rem" id="dReadyAvg">—</span></div>
+        <div id="dReadySpark"></div>
+        <div class="muted" style="font-size:.78rem;margin-top:8px">Daily 1–10 score from the pre-session check. Greens = fresh, reds = crashed.</div>
+      </div>
+    </div>
+
+    <div class="grid c2" style="margin-bottom:14px">
+      <div class="card">
+        <div class="hdr"><h2>Today's Session</h2><span class="pill" id="dTodayTag">—</span></div>
+        <div id="dToday" class="muted">Open Setup to generate your plan.</div>
+        <div style="margin-top:10px"><button class="btn sm" onclick="goto('today')">Start session →</button></div>
+      </div>
+      <div class="card">
+        <div class="hdr"><h2>Block Progress</h2><span class="muted" id="dBlockProg">—</span></div>
+        <div class="progbar"><div id="dProgBar" style="width:0%"></div></div>
+        <div class="muted" style="margin-top:10px;font-size:.82rem" id="dPhaseNote">—</div>
+        <hr/>
+        <div style="font-size:.82rem;color:var(--ink-2)" id="dPhaseDesc">—</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="hdr"><h2>Weekly Volume by Muscle</h2><span class="muted" style="font-size:.78rem">working sets / week vs. target</span></div>
+      <div id="dVolume"></div>
+    </div>
+
+    <div class="grid c3">
+      <div class="card"><h3>Bodyweight Trend</h3><div class="chart-wrap"><canvas id="dChBw"></canvas></div></div>
+      <div class="card"><h3>Total Weekly Tonnage</h3><div class="chart-wrap"><canvas id="dChTon"></canvas></div></div>
+      <div class="card"><h3>Sessions / Week</h3><div class="chart-wrap"><canvas id="dChSes"></canvas></div></div>
+    </div>
+  </section>
+
+  <!-- PLAN -->
+  <section class="tab" id="tab-plan" style="display:none">
+    <div class="card" style="margin-bottom:14px">
+      <div class="hdr">
+        <div>
+          <h2 id="planTitle">Your 6-Month Plan</h2>
+          <div class="muted" style="font-size:.82rem" id="planSubtitle">Auto-generated from your goal, priorities, and equipment.</div>
+        </div>
+        <div class="toolbar" style="margin:0">
+          <button class="btn ghost sm" onclick="regeneratePlan()">Regenerate plan</button>
+          <button class="btn ghost sm" onclick="printPlan()">Print</button>
+        </div>
+      </div>
+      <div id="planMesoNav" class="badge-grid" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
+      <div id="planWeekNav" class="badge-grid" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
+    </div>
+    <div id="planBody"></div>
+  </section>
+
+  <!-- TODAY -->
+  <section class="tab" id="tab-today" style="display:none">
+    <div class="card" style="margin-bottom:14px">
+      <div class="hdr">
+        <div>
+          <h2 id="todayTitle">Today's Session</h2>
+          <div class="muted" style="font-size:.82rem" id="todaySub">—</div>
+        </div>
+        <div class="toolbar" style="margin:0">
+          <button class="btn ghost sm" onclick="prevSession()">← Prev day</button>
+          <button class="btn ghost sm" onclick="nextSession()">Next day →</button>
+          <button class="btn sm" onclick="markSessionDone()">Mark complete</button>
+        </div>
+      </div>
+      <div id="todayBody"></div>
+    </div>
+  </section>
+
+  <!-- LOG -->
+  <section class="tab" id="tab-log" style="display:none">
+    <div class="grid c2" style="margin-bottom:14px">
+      <div class="card">
+        <div class="hdr"><h2>Quick Log</h2><span class="muted" style="font-size:.8rem">Stamp a working set</span></div>
+        <div class="row">
+          <div class="field"><label>Date</label><input type="date" id="logDate"></div>
+          <div class="field"><label>Exercise</label><input type="text" id="logEx" list="exList"></div>
+        </div>
+        <datalist id="exList"></datalist>
+        <div class="row">
+          <div class="field"><label>Weight</label><input type="number" id="logWeight" step="0.5"></div>
+          <div class="field"><label>Reps</label><input type="number" id="logReps" value="5" step="1"></div>
+          <div class="field"><label>RPE</label><input type="number" id="logRpe" step="0.5" min="5" max="10"></div>
+          <div class="field"><label>Sets</label><input type="number" id="logSets" value="1" step="1"></div>
+        </div>
+        <div class="field"><label>Notes</label><textarea id="logNotes" placeholder="Bar speed, cues, how it felt…"></textarea></div>
+        <button class="btn" onclick="addLog()">Add to log</button>
+      </div>
+      <div class="card">
+        <div class="hdr"><h2>Estimated 1RM Trend <span class="help" title="e1RM — Estimated 1RM. Your max calculated from a non-failure set using weight, reps, and RPE." onclick="scrollToTerm('e1RM')">?</span></h2>
+          <select id="trendEx" onchange="renderLogTrend()"></select>
+        </div>
+        <div class="chart-wrap tall"><canvas id="chTrend"></canvas></div>
+        <div class="muted" style="font-size:.78rem;margin-top:8px">e1RM uses the standard RPE chart. Higher RPE on the same weight = stronger estimate.</div>
+      </div>
+    </div>
+    <div class="card flush">
+      <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap">
+        <h2 style="margin:0">History</h2>
+        <div class="toolbar" style="margin:0">
+          <input type="text" id="histSearch" placeholder="Search…" style="width:180px" oninput="renderLogHistory()">
+          <button class="btn ghost sm" onclick="clearLogs()">Clear all</button>
+        </div>
+      </div>
+      <div id="logTableWrap"></div>
+    </div>
+  </section>
+
+  <!-- NUTRITION -->
+  <section class="tab" id="tab-nutrition" style="display:none">
+    <div class="card" style="margin-bottom:14px">
+      <div class="hdr">
+        <div>
+          <h2>Nutrition Phase</h2>
+          <div class="muted" style="font-size:.82rem">Pick how you're eating right now. Independent of your training goal — bulk while you build, cut while you maintain, anything.</div>
+        </div>
+        <button class="btn ghost sm" onclick="autoMacros()">↻ Recalculate macros</button>
+      </div>
+      <div class="toolbar" id="phaseChips" style="margin-top:8px"></div>
+      <div class="muted" style="font-size:.85rem;margin-top:4px" id="phaseDesc">—</div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="hdr"><h2>Rate Tracker <span class="help" title="Tracks your 7-day bodyweight rolling average vs the target rate for your phase. Suggests kcal adjustments." onclick="scrollToTerm('TDEE')">?</span></h2><span class="muted" style="font-size:.78rem" id="rateSub">—</span></div>
+      <div id="rateTracker"></div>
+    </div>
+
+    <div class="grid c3" style="margin-bottom:14px">
+      <div class="card stat"><div class="label">Daily Target — Kcal</div><div class="num" id="nuTKcal">—</div><div class="delta" id="nuTKcalSub">based on your phase</div></div>
+      <div class="card stat"><div class="label">Protein Target</div><div class="num" id="nuTP">—</div><div class="delta" id="nuTPSub">~2g per kg bodyweight</div></div>
+      <div class="card stat"><div class="label">Carbs / Fat</div><div class="num" id="nuTCF" style="font-size:1.15rem">—</div><div class="delta" id="nuTCFSub">balanced for the phase</div></div>
+    </div>
+
+    <div class="grid c2" style="margin-bottom:14px">
+      <div class="card">
+        <h2>Adjust Targets</h2>
+        <div class="row">
+          <div class="field"><label>Calories</label><input type="number" id="nuKcal" oninput="saveNu()"></div>
+          <div class="field"><label>Protein (g)</label><input type="number" id="nuP" oninput="saveNu()"></div>
+          <div class="field"><label>Carbs (g)</label><input type="number" id="nuC" oninput="saveNu()"></div>
+          <div class="field"><label>Fat (g)</label><input type="number" id="nuF" oninput="saveNu()"></div>
+        </div>
+        <button class="btn ghost sm" onclick="autoMacros()">Auto-set from TDEE</button>
+        <div class="muted" style="font-size:.78rem;margin-top:6px">Re-calculates based on your goal, weight, sex, age, and activity.</div>
+      </div>
+      <div class="card">
+        <h2>Bodyweight Trend</h2>
+        <div class="chart-wrap tall"><canvas id="chBw"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid c2">
+      <div class="card">
+        <h2>Log Today</h2>
+        <div class="row">
+          <div class="field"><label>Date</label><input type="date" id="nuDate"></div>
+          <div class="field"><label>Bodyweight</label><input type="number" id="nuBw" step="0.1"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Calories</label><input type="number" id="nuKcalLog"></div>
+          <div class="field"><label>Protein</label><input type="number" id="nuPLog"></div>
+          <div class="field"><label>Carbs</label><input type="number" id="nuCLog"></div>
+          <div class="field"><label>Fat</label><input type="number" id="nuFLog"></div>
+        </div>
+        <div class="field"><label>Notes</label><textarea id="nuNotes" placeholder="Sleep, hunger, energy…"></textarea></div>
+        <button class="btn" onclick="addNuLog()">Save day</button>
+      </div>
+      <div class="card flush">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border)"><h2 style="margin:0">Recent Days</h2></div>
+        <div id="nuTableWrap"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOOLS -->
+  <section class="tab" id="tab-tools" style="display:none">
+    <div class="grid c2" style="margin-bottom:14px">
+      <div class="card">
+        <h2>RPE Load Calculator <span class="help" title="RPE — How hard a set felt, on a 1–10 scale. RPE 8 = 2 reps left in the tank." onclick="scrollToTerm('RPE')">?</span></h2>
+        <div class="muted" style="font-size:.82rem;margin-bottom:8px">Reps + RPE → working weight.</div>
+        <div class="row">
+          <div class="field"><label>Estimated 1RM</label><input type="number" id="rpe1rm" value="100"></div>
+          <div class="field"><label>Reps</label><input type="number" id="rpeReps" value="5" min="1" max="12"></div>
+          <div class="field"><label>RPE</label><input type="number" id="rpeRpe" value="8" step="0.5" min="5" max="10"></div>
+        </div>
+        <button class="btn sm" onclick="renderRpeCalc()">Compute</button>
+        <div style="margin-top:10px" id="rpeResult"></div>
+        <hr/>
+        <h3>Reverse: estimate 1RM</h3>
+        <div class="row">
+          <div class="field"><label>Weight</label><input type="number" id="e1Weight"></div>
+          <div class="field"><label>Reps</label><input type="number" id="e1Reps" value="5"></div>
+          <div class="field"><label>RPE</label><input type="number" id="e1Rpe" value="8" step="0.5"></div>
+        </div>
+        <button class="btn sm" onclick="renderE1()">Estimate</button>
+        <div style="margin-top:10px" id="e1Result"></div>
+      </div>
+      <div class="card">
+        <h2>Warmup Calculator</h2>
+        <div class="row">
+          <div class="field"><label>Working weight</label><input type="number" id="wuWeight" oninput="renderWarmup()"></div>
+          <div class="field"><label>Bar weight</label><input type="number" id="wuBar" value="20" oninput="renderWarmup()"></div>
+          <div class="field"><label>Round to</label><select id="wuRound" onchange="renderWarmup()">
+            <option value="2.5">2.5</option><option value="5">5</option><option value="1">1</option></select></div>
+        </div>
+        <div id="wuResult" style="margin-top:10px"></div>
+        <hr/>
+        <h2>Plate Calculator</h2>
+        <div class="row">
+          <div class="field"><label>Target weight</label><input type="number" id="plW" oninput="renderPlate()"></div>
+          <div class="field"><label>Bar</label><input type="number" id="plBar" value="20" oninput="renderPlate()"></div>
+          <div class="field"><label>Plate set</label><select id="plSet" onchange="renderPlate()">
+            <option value="kg">kg (25/20/15/10/5/2.5/1.25)</option>
+            <option value="lb">lb (45/35/25/10/5/2.5)</option></select></div>
+        </div>
+        <div id="plResult" style="margin-top:10px"></div>
+      </div>
+    </div>
+
+    <div class="grid c2" style="margin-bottom:14px">
+      <div class="card">
+        <h2>TDEE / Calorie Calculator <span class="help" title="TDEE — Total Daily Energy Expenditure. The calories you burn in a typical day (BMR + activity)." onclick="scrollToTerm('TDEE')">?</span></h2>
+        <div class="row">
+          <div class="field"><label>Sex</label><select id="tdSex"><option>Male</option><option>Female</option></select></div>
+          <div class="field"><label>Age</label><input type="number" id="tdAge" value="30"></div>
+          <div class="field"><label>Weight</label><input type="number" id="tdWt" value="80"></div>
+          <div class="field"><label>Height (cm)</label><input type="number" id="tdHt" value="178"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Activity</label><select id="tdAct">
+            <option value="1.2">Sedentary</option>
+            <option value="1.375">Light (1-3 d/wk)</option>
+            <option value="1.55" selected>Moderate (3-5 d/wk)</option>
+            <option value="1.725">Hard (6-7 d/wk)</option>
+            <option value="1.9">Very hard</option></select></div>
+          <div class="field"><label>Phase</label><select id="tdPhase">
+            <option value="0.8">Cut (-20%)</option>
+            <option value="0.9">Mini-cut (-10%)</option>
+            <option value="1" selected>Maintain</option>
+            <option value="1.1">Lean gain (+10%)</option>
+            <option value="1.15">Bulk (+15%)</option></select></div>
+        </div>
+        <button class="btn sm" onclick="renderTDEE()">Compute</button>
+        <div id="tdResult" style="margin-top:10px"></div>
+      </div>
+      <div class="card">
+        <h2>1RM Calculator <span class="help" title="1RM — One Repetition Maximum. The heaviest weight you can lift for a single rep." onclick="scrollToTerm('1RM')">?</span> (multi-formula)</h2>
+        <div class="row">
+          <div class="field"><label>Weight</label><input type="number" id="oneWt" value="100"></div>
+          <div class="field"><label>Reps</label><input type="number" id="oneRp" value="5"></div>
+        </div>
+        <button class="btn sm" onclick="renderOneRM()">Compute</button>
+        <div id="oneResult" style="margin-top:10px"></div>
+        <hr/>
+        <h3>%1RM × Reps × RPE Matrix</h3>
+        <div class="scroll-x"><table class="matrix" id="rpeMatrix"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIBRARY -->
+  <section class="tab" id="tab-library" style="display:none">
+    <div class="card" style="margin-bottom:14px">
+      <div class="hdr"><h2>Exercise Library</h2><span class="muted" id="libCount">—</span></div>
+      <div class="toolbar">
+        <input type="text" id="libSearch" placeholder="Search exercises…" style="max-width:240px" oninput="renderLibrary()">
+        <select id="libMuscle" onchange="renderLibrary()">
+          <option value="">All muscles</option>
+        </select>
+        <select id="libEquip" onchange="renderLibrary()">
+          <option value="">All equipment</option>
+          <option value="barbell">Barbell</option><option value="dumbbell">Dumbbell</option>
+          <option value="machine">Machine</option><option value="cable">Cable</option>
+          <option value="bodyweight">Bodyweight</option><option value="bands">Bands</option>
+        </select>
+        <select id="libType" onchange="renderLibrary()">
+          <option value="">All types</option>
+          <option value="compound">Compound</option><option value="isolation">Isolation</option>
+        </select>
+      </div>
+      <div id="libBody"></div>
+    </div>
+  </section>
+
+  <!-- GLOSSARY -->
+  <section class="tab" id="tab-glossary" style="display:none">
+    <div class="card" style="margin-bottom:14px">
+      <div class="hdr">
+        <div>
+          <h2>Glossary</h2>
+          <div class="muted" style="font-size:.82rem">Every training and nutrition term used in the app, in plain English.</div>
+        </div>
+        <div class="toolbar" style="margin:0">
+          <input type="text" id="glossSearch" placeholder="Search terms…" style="max-width:240px" oninput="renderGlossary()">
+          <select id="glossCat" onchange="renderGlossary()">
+            <option value="">All categories</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div id="glossBody"></div>
+  </section>
+
+  <!-- SETUP -->
+  <section class="tab" id="tab-setup" style="display:none">
+    <div class="grid c2">
+      <div class="card">
+        <h2>You</h2>
+        <div class="row">
+          <div class="field"><label>Name</label><input type="text" id="sName" oninput="saveSetup()"></div>
+          <div class="field"><label>Units</label><select id="sUnits" onchange="saveSetup();renderAll()"><option value="kg">kg</option><option value="lb">lb</option></select></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Sex</label><select id="sSex" onchange="saveSetup()"><option>Male</option><option>Female</option></select></div>
+          <div class="field"><label>Age</label><input type="number" id="sAge" oninput="saveSetup()"></div>
+          <div class="field"><label>Weight</label><input type="number" id="sWt" oninput="saveSetup()"></div>
+          <div class="field"><label>Height (cm)</label><input type="number" id="sHt" oninput="saveSetup()"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Experience</label><select id="sExp" onchange="saveSetup()">
+            <option value="beginner">Beginner (&lt;1 yr)</option>
+            <option value="intermediate" selected>Intermediate (1-3 yr)</option>
+            <option value="advanced">Advanced (3+ yr)</option></select></div>
+          <div class="field"><label>Start date</label><input type="date" id="sStart" onchange="saveSetup();renderAll()"></div>
+        </div>
+        <div class="field"><label>Coach voice <span class="muted" style="font-weight:400">— how the app talks to you before each session</span></label>
+          <div class="toolbar" id="toneChips" style="margin:0"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Goal</h2>
+        <div class="toolbar" id="goalChips"></div>
+        <div class="muted" style="font-size:.85rem;margin-top:8px" id="goalDesc">—</div>
+        <hr/>
+        <h2>Schedule</h2>
+        <div class="row">
+          <div class="field"><label>Days per week</label><select id="sDays" onchange="saveSetup()">
+            <option>3</option><option>4</option><option>5</option><option>6</option></select></div>
+          <div class="field"><label>Plan length</label><select id="sDur" onchange="saveSetup()">
+            <option value="12">3 months (12 wk)</option>
+            <option value="16">4 months (16 wk)</option>
+            <option value="24" selected>6 months (24 wk)</option></select></div>
+        </div>
+        <hr/>
+        <h2>Equipment</h2>
+        <div class="toolbar" id="equipChips"></div>
+        <div class="muted" style="font-size:.78rem">Pick everything you have access to. Affects exercise selection.</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="hdr"><h2>Muscle Priorities</h2><span class="muted" style="font-size:.78rem">Tag each muscle. Priority = extra weekly volume. Skip = ignored.</span></div>
+      <div id="prioGrid"></div>
+      <div class="muted" style="font-size:.78rem;margin-top:10px">
+        Targets per week — Priority: ~18-22 sets · Grow: ~12-15 · Maintain: ~6-8 · Skip: 0
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div>
+        <h2 style="margin:0">Ready to build your plan?</h2>
+        <div class="muted" style="font-size:.85rem">We'll auto-generate a {{N}} mesocycle plan tailored to you.</div>
+      </div>
+      <button class="btn lg" onclick="generateAndOpen()">Generate plan →</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- MORE SHEET (mobile only) -->
+<div class="modal-bg" id="moreSheet">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h1>More</h1>
+      <button class="btn ghost sm" onclick="closeMoreSheet()">Close</button>
+    </div>
+    <div class="more-sheet">
+      <div class="item" onclick="goto('nutrition');closeMoreSheet()"><i class="ti ti-apple"></i> Nutrition</div>
+      <div class="item" onclick="goto('tools');closeMoreSheet()"><i class="ti ti-calculator"></i> Tools</div>
+      <div class="item" onclick="goto('library');closeMoreSheet()"><i class="ti ti-book"></i> Exercise Library</div>
+      <div class="item" onclick="goto('glossary');closeMoreSheet()"><i class="ti ti-help-circle"></i> Glossary</div>
+      <div class="item" onclick="goto('setup');closeMoreSheet()"><i class="ti ti-settings"></i> Setup</div>
+      <div class="item" onclick="exportData();closeMoreSheet()"><i class="ti ti-download"></i> Export data</div>
+      <div class="item" onclick="importDataPrompt();closeMoreSheet()"><i class="ti ti-upload"></i> Import data</div>
+    </div>
+  </div>
+</div>
+
+<!-- iOS INSTALL HINT MODAL -->
+<div class="modal-bg" id="iosInstall">
+  <div class="modal" style="max-width:440px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h1>Add to Home Screen</h1>
+      <button class="btn ghost sm" onclick="closeIosInstall()">Close</button>
+    </div>
+    <p class="muted">iOS doesn't have a one-tap install button, but it works the same way once you've added it.</p>
+    <ol style="padding-left:20px;line-height:1.7">
+      <li>Tap the <b>Share</b> icon at the bottom of Safari (square with an up-arrow).</li>
+      <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+      <li>Tap <b>Add</b>. The app icon will appear on your home screen — open it from there and it runs fullscreen, offline.</li>
+    </ol>
+    <p class="muted" style="font-size:.8rem">Works in Safari. Chrome on iOS uses Apple's WebKit too — same steps via its Share menu.</p>
+  </div>
+</div>
+
+<!-- READINESS CHECK MODAL -->
+<div class="modal-bg" id="readyModal">
+  <div class="modal" style="max-width:560px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h1>Pre-session check</h1>
+      <button class="btn ghost sm" onclick="closeReady()">Skip</button>
+    </div>
+    <div class="muted" style="margin-bottom:8px">20 seconds. The app uses these to adjust today's loads to how you actually feel.</div>
+    <div id="readyBody"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:10px">
+      <div class="muted" id="readyScore">Readiness: —</div>
+      <button class="btn" onclick="saveReadiness()">Lock in & start →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ONBOARDING MODAL -->
+<div class="modal-bg" id="onboard">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h1>Welcome to Self-Coached OS</h1>
+      <button class="btn ghost sm" onclick="closeOnboard()">Skip</button>
+    </div>
+    <div class="muted" style="margin-bottom:14px">Three quick steps and you'll have a 6-month plan tailored to your goal, body, and equipment.</div>
+    <div id="onboardBody"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:10px">
+      <button class="btn ghost" id="obBack" onclick="obStep(-1)">← Back</button>
+      <div class="muted" id="obDots">●○○</div>
+      <button class="btn" id="obNext" onclick="obStep(1)">Next →</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   Self-Coached OS v2 — goal-driven training
+   ===================================================================== */
+
+/* ---------- Constants ---------- */
+const MUSCLES = [
+  {id:'chest', name:'Chest'},
+  {id:'back', name:'Back'},
+  {id:'shoulders', name:'Shoulders'},
+  {id:'biceps', name:'Biceps'},
+  {id:'triceps', name:'Triceps'},
+  {id:'quads', name:'Quads'},
+  {id:'hamstrings', name:'Hamstrings'},
+  {id:'glutes', name:'Glutes'},
+  {id:'calves', name:'Calves'},
+  {id:'core', name:'Core'},
+];
+const MNAME = Object.fromEntries(MUSCLES.map(m=>[m.id,m.name]));
+
+const EQUIPMENT = [
+  {id:'barbell', name:'Barbell + Rack'},
+  {id:'dumbbell', name:'Dumbbells'},
+  {id:'machine', name:'Machines'},
+  {id:'cable', name:'Cables'},
+  {id:'bodyweight', name:'Bodyweight'},
+  {id:'bands', name:'Bands'},
+];
+
+const GOALS = [
+  { id:'hypertrophy', name:'Build muscle',
+    desc:'Maximize hypertrophy. 6 mesocycles, priority muscles get extra volume and specialization weeks.' },
+  { id:'recomp', name:'Lose weight / recomp',
+    desc:'Calorie deficit + lifting to retain muscle. 12-week cut → diet break → 8-week cut → reverse.' },
+  { id:'powerbuilding', name:'Powerbuilding',
+    desc:'Strength + size. Alternating heavy strength blocks and hypertrophy blocks across 6 months.' },
+];
+
+const VOL_TARGETS = { // weekly sets per muscle by priority
+  priority: 20, grow: 13, maintain: 7, skip: 0,
+};
+
+/* Nutrition phases — independent of training goal so any combo is possible.
+   mult: kcal multiplier on TDEE
+   carbRatio: share of kcal from carbs (rest split protein + fat)
+   target: target bodyweight change per week as % of bodyweight (positive = gain) */
+const PHASES = [
+  { id:'agg-bulk',   name:'Aggressive Bulk', mult:1.20, carbRatio:0.55, target:0.6,
+    desc:'Maximize muscle gain — accepts more fat. Target +0.5 to +0.7% bodyweight per week.' },
+  { id:'lean-bulk',  name:'Lean Bulk',       mult:1.10, carbRatio:0.50, target:0.3,
+    desc:'Build muscle with minimal fat. Target +0.2 to +0.4% bodyweight per week.' },
+  { id:'maintenance',name:'Maintenance',     mult:1.00, carbRatio:0.45, target:0.0,
+    desc:'Bodyweight stays flat. Good for deloads, skill phases, or holding a new weight.' },
+  { id:'recomp',     name:'Recomp',          mult:1.00, carbRatio:0.45, target:-0.05,
+    desc:'Build muscle and lose fat at the same time. Maintenance kcal, very high protein.' },
+  { id:'mini-cut',   name:'Mini-Cut',        mult:0.80, carbRatio:0.40, target:-0.9,
+    desc:'Short aggressive cut (3 to 6 weeks). Strip fat between gain phases.' },
+  { id:'cut',        name:'Cut',             mult:0.80, carbRatio:0.40, target:-0.6,
+    desc:'Standard fat loss. Target -0.5 to -0.8% bodyweight per week. 10 to 16 weeks.' },
+  { id:'diet-break', name:'Diet Break',      mult:1.00, carbRatio:0.50, target:0.0,
+    desc:'1 to 2 week pause at maintenance during a long cut. Resets hormones and hunger.' },
+  { id:'reverse',    name:'Reverse Diet',    mult:1.05, carbRatio:0.50, target:0.05,
+    desc:'Slowly raise calories back up after a cut to find your new maintenance.' },
+];
+const PHASE_BY_ID = Object.fromEntries(PHASES.map(p=>[p.id,p]));
+/* Default phase suggested by training goal — user can override anytime */
+function defaultPhaseForGoal(goal){
+  if(goal==='hypertrophy') return 'lean-bulk';
+  if(goal==='recomp') return 'cut';
+  if(goal==='powerbuilding') return 'maintenance';
+  return 'maintenance';
+}
+
+/* RPE percentage table */
+const RPE_PCT = {
+  1:{10:100,9.5:97.8,9:95.5,8.5:93.9,8:92.2,7.5:90.7,7:89.2,6.5:87.8,6:86.3,5.5:85.0,5:83.7},
+  2:{10:95.5,9.5:93.9,9:92.2,8.5:90.7,8:89.2,7.5:87.8,7:86.3,6.5:85.0,6:83.7,5.5:82.4,5:81.1},
+  3:{10:92.2,9.5:90.7,9:89.2,8.5:87.8,8:86.3,7.5:85.0,7:83.7,6.5:82.4,6:81.1,5.5:79.9,5:78.6},
+  4:{10:89.2,9.5:87.8,9:86.3,8.5:85.0,8:83.7,7.5:82.4,7:81.1,6.5:79.9,6:78.6,5.5:77.4,5:76.2},
+  5:{10:86.3,9.5:85.0,9:83.7,8.5:82.4,8:81.1,7.5:79.9,7:78.6,6.5:77.4,6:76.2,5.5:75.1,5:73.9},
+  6:{10:83.7,9.5:82.4,9:81.1,8.5:79.9,8:78.6,7.5:77.4,7:76.2,6.5:75.1,6:73.9,5.5:72.3,5:70.7},
+  7:{10:81.1,9.5:79.9,9:78.6,8.5:77.4,8:76.2,7.5:75.1,7:73.9,6.5:72.3,6:70.7,5.5:69.4,5:68.0},
+  8:{10:78.6,9.5:77.4,9:76.2,8.5:75.1,8:73.9,7.5:72.3,7:70.7,6.5:69.4,6:68.0,5.5:66.7,5:65.3},
+  9:{10:76.2,9.5:75.1,9:73.9,8.5:72.3,8:70.7,7.5:69.4,7:68.0,6.5:66.7,6:65.3,5.5:64.0,5:62.6},
+  10:{10:73.9,9.5:72.3,9:70.7,8.5:69.4,8:68.0,7.5:66.7,7:65.3,6.5:64.0,6:62.6,5.5:61.3,5:59.9},
+  11:{10:70.7,9.5:69.4,9:68.0,8.5:66.7,8:65.3,7.5:64.0,7:62.6,6.5:61.3,6:59.9,5.5:58.6,5:57.4},
+  12:{10:68.0,9.5:66.7,9:65.3,8.5:64.0,8:62.6,7.5:61.3,7:59.9,6.5:58.6,6:57.4,5.5:56.1,5:54.8},
+};
+const RPE_LIST = [10,9.5,9,8.5,8,7.5,7,6.5,6,5.5,5];
+function rpePct(reps,rpe){
+  reps = Math.max(1, Math.min(12, Math.round(reps)));
+  rpe = Math.max(5, Math.min(10, Math.round(rpe*2)/2));
+  return RPE_PCT[reps][rpe];
+}
+function estimatedOneRM(w,r,rpe){ return w / (rpePct(r,rpe||10)/100); }
+
+/* ---------- Exercise Library ---------- */
+/* type: compound | isolation
+   equip: barbell | dumbbell | machine | cable | bodyweight | bands
+   pri: primary muscle id, sec: array of secondary muscle ids */
+const EX = [
+  // ---- CHEST ----
+  {id:'bb-bench', n:'Barbell Bench Press', pri:'chest', sec:['triceps','shoulders'], equip:'barbell', type:'compound'},
+  {id:'bb-inc-bench', n:'Incline Barbell Bench', pri:'chest', sec:['shoulders','triceps'], equip:'barbell', type:'compound'},
+  {id:'db-bench', n:'Dumbbell Bench Press', pri:'chest', sec:['triceps','shoulders'], equip:'dumbbell', type:'compound'},
+  {id:'db-inc-bench', n:'Incline DB Bench', pri:'chest', sec:['shoulders','triceps'], equip:'dumbbell', type:'compound'},
+  {id:'machine-press', n:'Machine Chest Press', pri:'chest', sec:['triceps'], equip:'machine', type:'compound'},
+  {id:'db-fly', n:'Dumbbell Fly', pri:'chest', sec:[], equip:'dumbbell', type:'isolation'},
+  {id:'cable-cross-mid', n:'Cable Crossover (mid)', pri:'chest', sec:[], equip:'cable', type:'isolation'},
+  {id:'cable-cross-high', n:'High-to-Low Cable Fly', pri:'chest', sec:[], equip:'cable', type:'isolation'},
+  {id:'pec-deck', n:'Pec Deck', pri:'chest', sec:[], equip:'machine', type:'isolation'},
+  {id:'pushup', n:'Push-Up', pri:'chest', sec:['triceps','core'], equip:'bodyweight', type:'compound'},
+  {id:'dip-chest', n:'Chest Dip (lean forward)', pri:'chest', sec:['triceps'], equip:'bodyweight', type:'compound'},
+
+  // ---- BACK ----
+  {id:'pull-up', n:'Pull-Up', pri:'back', sec:['biceps'], equip:'bodyweight', type:'compound'},
+  {id:'chin-up', n:'Chin-Up', pri:'back', sec:['biceps'], equip:'bodyweight', type:'compound'},
+  {id:'lat-pd', n:'Lat Pulldown', pri:'back', sec:['biceps'], equip:'cable', type:'compound'},
+  {id:'lat-pd-neutral', n:'Neutral-Grip Pulldown', pri:'back', sec:['biceps'], equip:'cable', type:'compound'},
+  {id:'cable-row', n:'Seated Cable Row', pri:'back', sec:['biceps'], equip:'cable', type:'compound'},
+  {id:'bb-row', n:'Barbell Row', pri:'back', sec:['biceps','hamstrings'], equip:'barbell', type:'compound'},
+  {id:'pendlay-row', n:'Pendlay Row', pri:'back', sec:['biceps'], equip:'barbell', type:'compound'},
+  {id:'db-row', n:'Single-Arm DB Row', pri:'back', sec:['biceps'], equip:'dumbbell', type:'compound'},
+  {id:'t-bar-row', n:'T-Bar Row', pri:'back', sec:['biceps'], equip:'barbell', type:'compound'},
+  {id:'chest-supp-row', n:'Chest-Supported Row', pri:'back', sec:['biceps'], equip:'machine', type:'compound'},
+  {id:'face-pull', n:'Face Pull', pri:'back', sec:['shoulders'], equip:'cable', type:'isolation'},
+  {id:'straight-arm-pd', n:'Straight-Arm Pulldown', pri:'back', sec:[], equip:'cable', type:'isolation'},
+  {id:'pullover', n:'DB Pullover', pri:'back', sec:['chest'], equip:'dumbbell', type:'isolation'},
+  {id:'shrug', n:'Barbell Shrug', pri:'back', sec:[], equip:'barbell', type:'isolation'},
+  {id:'inv-row', n:'Inverted Row', pri:'back', sec:['biceps'], equip:'bodyweight', type:'compound'},
+  {id:'band-pull-apart', n:'Band Pull-Apart', pri:'back', sec:['shoulders'], equip:'bands', type:'isolation'},
+
+  // ---- SHOULDERS ----
+  {id:'bb-ohp', n:'Barbell Overhead Press', pri:'shoulders', sec:['triceps','core'], equip:'barbell', type:'compound'},
+  {id:'db-shoulder-press', n:'Seated DB Shoulder Press', pri:'shoulders', sec:['triceps'], equip:'dumbbell', type:'compound'},
+  {id:'arnold', n:'Arnold Press', pri:'shoulders', sec:['triceps'], equip:'dumbbell', type:'compound'},
+  {id:'machine-ohp', n:'Machine Shoulder Press', pri:'shoulders', sec:['triceps'], equip:'machine', type:'compound'},
+  {id:'lat-raise', n:'Dumbbell Lateral Raise', pri:'shoulders', sec:[], equip:'dumbbell', type:'isolation'},
+  {id:'cable-lat-raise', n:'Cable Lateral Raise', pri:'shoulders', sec:[], equip:'cable', type:'isolation'},
+  {id:'machine-lat-raise', n:'Machine Lateral Raise', pri:'shoulders', sec:[], equip:'machine', type:'isolation'},
+  {id:'rear-delt-fly', n:'Reverse Pec Deck', pri:'shoulders', sec:['back'], equip:'machine', type:'isolation'},
+  {id:'db-rear-delt', n:'DB Rear Delt Fly', pri:'shoulders', sec:['back'], equip:'dumbbell', type:'isolation'},
+  {id:'front-raise', n:'Front Raise', pri:'shoulders', sec:[], equip:'dumbbell', type:'isolation'},
+  {id:'pike-pushup', n:'Pike Push-Up', pri:'shoulders', sec:['triceps'], equip:'bodyweight', type:'compound'},
+
+  // ---- BICEPS ----
+  {id:'bb-curl', n:'Barbell Curl', pri:'biceps', sec:[], equip:'barbell', type:'isolation'},
+  {id:'db-curl', n:'Dumbbell Curl', pri:'biceps', sec:[], equip:'dumbbell', type:'isolation'},
+  {id:'hammer-curl', n:'Hammer Curl', pri:'biceps', sec:[], equip:'dumbbell', type:'isolation'},
+  {id:'incline-curl', n:'Incline DB Curl', pri:'biceps', sec:[], equip:'dumbbell', type:'isolation'},
+  {id:'preacher-curl', n:'Preacher Curl', pri:'biceps', sec:[], equip:'machine', type:'isolation'},
+  {id:'cable-curl', n:'Cable Curl', pri:'biceps', sec:[], equip:'cable', type:'isolation'},
+  {id:'concentration', n:'Concentration Curl', pri:'biceps', sec:[], equip:'dumbbell', type:'isolation'},
+
+  // ---- TRICEPS ----
+  {id:'cg-bench', n:'Close-Grip Bench Press', pri:'triceps', sec:['chest','shoulders'], equip:'barbell', type:'compound'},
+  {id:'skull', n:'Lying Triceps Extension', pri:'triceps', sec:[], equip:'barbell', type:'isolation'},
+  {id:'tri-pd', n:'Cable Triceps Pushdown', pri:'triceps', sec:[], equip:'cable', type:'isolation'},
+  {id:'tri-rope', n:'Rope Triceps Pushdown', pri:'triceps', sec:[], equip:'cable', type:'isolation'},
+  {id:'oh-tri', n:'Overhead Cable Extension', pri:'triceps', sec:[], equip:'cable', type:'isolation'},
+  {id:'db-oh-tri', n:'DB Overhead Extension', pri:'triceps', sec:[], equip:'dumbbell', type:'isolation'},
+  {id:'dip', n:'Triceps Dip', pri:'triceps', sec:['chest'], equip:'bodyweight', type:'compound'},
+
+  // ---- QUADS ----
+  {id:'bb-squat', n:'Barbell Back Squat', pri:'quads', sec:['glutes','hamstrings','core'], equip:'barbell', type:'compound'},
+  {id:'front-squat', n:'Front Squat', pri:'quads', sec:['core','glutes'], equip:'barbell', type:'compound'},
+  {id:'hack-squat', n:'Hack Squat', pri:'quads', sec:['glutes'], equip:'machine', type:'compound'},
+  {id:'leg-press', n:'Leg Press', pri:'quads', sec:['glutes'], equip:'machine', type:'compound'},
+  {id:'leg-ext', n:'Leg Extension', pri:'quads', sec:[], equip:'machine', type:'isolation'},
+  {id:'bulg-split', n:'Bulgarian Split Squat', pri:'quads', sec:['glutes','hamstrings'], equip:'dumbbell', type:'compound'},
+  {id:'lunge', n:'Walking Lunge', pri:'quads', sec:['glutes','hamstrings'], equip:'dumbbell', type:'compound'},
+  {id:'step-up', n:'DB Step-Up', pri:'quads', sec:['glutes'], equip:'dumbbell', type:'compound'},
+  {id:'goblet', n:'Goblet Squat', pri:'quads', sec:['glutes','core'], equip:'dumbbell', type:'compound'},
+  {id:'sissy', n:'Sissy Squat', pri:'quads', sec:[], equip:'bodyweight', type:'isolation'},
+  {id:'cyclist-squat', n:'Cyclist (heel-elevated) Squat', pri:'quads', sec:['glutes'], equip:'dumbbell', type:'compound'},
+
+  // ---- HAMSTRINGS ----
+  {id:'rdl', n:'Romanian Deadlift', pri:'hamstrings', sec:['glutes','back'], equip:'barbell', type:'compound'},
+  {id:'db-rdl', n:'Dumbbell RDL', pri:'hamstrings', sec:['glutes','back'], equip:'dumbbell', type:'compound'},
+  {id:'sldl', n:'Stiff-Leg Deadlift', pri:'hamstrings', sec:['glutes','back'], equip:'barbell', type:'compound'},
+  {id:'lying-curl', n:'Lying Leg Curl', pri:'hamstrings', sec:[], equip:'machine', type:'isolation'},
+  {id:'seated-curl', n:'Seated Leg Curl', pri:'hamstrings', sec:[], equip:'machine', type:'isolation'},
+  {id:'nordic', n:'Nordic Hamstring Curl', pri:'hamstrings', sec:[], equip:'bodyweight', type:'isolation'},
+  {id:'good-morning', n:'Good Morning', pri:'hamstrings', sec:['glutes','back'], equip:'barbell', type:'compound'},
+  {id:'kb-swing', n:'Kettlebell Swing', pri:'hamstrings', sec:['glutes','back'], equip:'dumbbell', type:'compound'},
+
+  // ---- GLUTES ----
+  {id:'hip-thrust', n:'Barbell Hip Thrust', pri:'glutes', sec:['hamstrings'], equip:'barbell', type:'compound'},
+  {id:'db-hip-thrust', n:'DB Hip Thrust', pri:'glutes', sec:['hamstrings'], equip:'dumbbell', type:'compound'},
+  {id:'glute-bridge', n:'Glute Bridge', pri:'glutes', sec:['hamstrings'], equip:'bodyweight', type:'isolation'},
+  {id:'cable-kickback', n:'Cable Glute Kickback', pri:'glutes', sec:[], equip:'cable', type:'isolation'},
+  {id:'abduction', n:'Hip Abduction Machine', pri:'glutes', sec:[], equip:'machine', type:'isolation'},
+  {id:'sumo-dl', n:'Sumo Deadlift', pri:'glutes', sec:['quads','hamstrings','back'], equip:'barbell', type:'compound'},
+  {id:'conv-dl', n:'Conventional Deadlift', pri:'back', sec:['glutes','hamstrings','quads'], equip:'barbell', type:'compound'},
+  {id:'curtsy-lunge', n:'Curtsy Lunge', pri:'glutes', sec:['quads'], equip:'dumbbell', type:'compound'},
+  {id:'frog-pump', n:'Frog Pump', pri:'glutes', sec:[], equip:'bodyweight', type:'isolation'},
+
+  // ---- CALVES ----
+  {id:'std-calf', n:'Standing Calf Raise', pri:'calves', sec:[], equip:'machine', type:'isolation'},
+  {id:'seated-calf', n:'Seated Calf Raise', pri:'calves', sec:[], equip:'machine', type:'isolation'},
+  {id:'lp-calf', n:'Leg-Press Calf Raise', pri:'calves', sec:[], equip:'machine', type:'isolation'},
+  {id:'db-calf', n:'DB Standing Calf Raise', pri:'calves', sec:[], equip:'dumbbell', type:'isolation'},
+  {id:'bw-calf', n:'Single-Leg Bodyweight Calf', pri:'calves', sec:[], equip:'bodyweight', type:'isolation'},
+
+  // ---- CORE ----
+  {id:'plank', n:'Plank', pri:'core', sec:[], equip:'bodyweight', type:'isolation'},
+  {id:'side-plank', n:'Side Plank', pri:'core', sec:[], equip:'bodyweight', type:'isolation'},
+  {id:'hanging-lr', n:'Hanging Leg Raise', pri:'core', sec:[], equip:'bodyweight', type:'isolation'},
+  {id:'cable-crunch', n:'Cable Crunch', pri:'core', sec:[], equip:'cable', type:'isolation'},
+  {id:'ab-wheel', n:'Ab Wheel Rollout', pri:'core', sec:[], equip:'bodyweight', type:'isolation'},
+  {id:'pallof', n:'Pallof Press', pri:'core', sec:[], equip:'cable', type:'isolation'},
+  {id:'dead-bug', n:'Dead Bug', pri:'core', sec:[], equip:'bodyweight', type:'isolation'},
+  {id:'weighted-situp', n:'Weighted Sit-Up', pri:'core', sec:[], equip:'dumbbell', type:'isolation'},
+];
+
+/* ---------- Glossary ---------- */
+const GLOSSARY = [
+  // --- Effort & strength ---
+  { cat:'Recovery & feel', term:'Readiness',
+    short:'A 1–10 score of how prepared you are to train today.',
+    def:'Built from sleep, energy, stress, and soreness (plus a pain flag). The app uses it to nudge today\'s loads ±5–10% and to cap RPE if you\'re crashed.',
+    ex:'Slept 5 hours and feel wrecked → readiness 3/10 → loads dropped 10%, RPE capped at 7.' },
+  { cat:'Recovery & feel', term:'Adherence',
+    short:'The share of scheduled sessions you actually logged.',
+    def:'Sessions completed ÷ sessions scheduled since your start date. 70%+ is normal life; 90%+ is dialled in.' },
+  { cat:'Recovery & feel', term:'PR', full:'Personal Record',
+    short:'A new best — usually a new estimated 1RM on an exercise.',
+    def:'The app auto-detects PRs after a session when a logged set beats your e1RM high from the last 60 days.',
+    see:['e1RM','1RM'] },
+  { cat:'Recovery & feel', term:'Coach voice',
+    short:'The tone the app uses when it speaks to you before a session.',
+    def:'Pick from Encouraging / Direct / Scientific / Chill in Setup. The actual content is generated from your data — last session, position in meso, readiness, recent PRs.' },
+  { cat:'Effort & strength', term:'RPE', full:'Rate of Perceived Exertion',
+    short:'How hard a set felt, on a 1–10 scale tied to reps in reserve.',
+    def:'RPE 10 = absolute max, no reps left. RPE 9 = 1 rep left in the tank. RPE 8 = 2 reps left. RPE 7 = 3 reps left. Lets you autoregulate weight day-to-day instead of grinding a fixed number.',
+    ex:'"5 reps @ RPE 8" → do 5 reps with the weight that leaves 2 more in the tank.',
+    see:['RIR','1RM','e1RM'] },
+  { cat:'Effort & strength', term:'RIR', full:'Reps In Reserve',
+    short:'Reps you could have still done after the last rep of a set.',
+    def:'Inverse of RPE. RIR 0 = total failure = RPE 10. RIR 2 = could do 2 more = RPE 8.',
+    see:['RPE'] },
+  { cat:'Effort & strength', term:'1RM', full:'One-Repetition Maximum',
+    short:'The heaviest weight you can lift for a single rep.',
+    def:'Your absolute max on a given exercise. The reference number for percentage-based programming.',
+    ex:'1RM bench = 100 kg. Program calls 80% × 5 → 80 kg × 5 reps.',
+    see:['e1RM','TM'] },
+  { cat:'Effort & strength', term:'e1RM', full:'Estimated 1RM',
+    short:'Your 1RM, calculated from a non-max set.',
+    def:'Math estimate using weight, reps, and RPE. Lets you track strength gains without actually maxing out — safer and faster.',
+    ex:'Squat 100 kg × 5 @ RPE 8 → ~123 kg estimated 1RM.',
+    see:['1RM','RPE'] },
+  { cat:'Effort & strength', term:'TM', full:'Training Max',
+    short:'A working number ~90% of true 1RM that you can hit on any day.',
+    def:'Used in many programs so percentages stay realistic even on rough days.',
+    ex:'True 1RM 100 kg → TM 90 kg. Program calls 80% × 5 → 72 kg.',
+    see:['1RM'] },
+
+  // --- Loading & volume ---
+  { cat:'Loading & volume', term:'Working set',
+    short:'A set heavy enough to drive growth — not a warmup.',
+    def:'The sets that count toward the prescribed weight, reps, and RPE for the day.' },
+  { cat:'Loading & volume', term:'Top set',
+    short:'Your hardest set of the day on a given exercise.',
+    def:'Usually the single heaviest set, often followed by back-offs.' },
+  { cat:'Loading & volume', term:'Back-off sets',
+    short:'Sets done at a lighter load after your top set.',
+    def:'After the hardest set, you drop 10–15% and do more sets to add volume without grinding.',
+    ex:'Top set: 100 kg × 3 @ RPE 8.5. Back-offs: 90 kg × 3 × 3 sets.' },
+  { cat:'Loading & volume', term:'Volume',
+    short:'How much you train a muscle — measured in working sets per week.',
+    def:'For hypertrophy: 4–8 sets/wk = maintain · 10–16 = grow · 16–22 = priority focus. More isn\'t always better; recovery has to keep up.',
+    see:['Working set','Frequency'] },
+  { cat:'Loading & volume', term:'Intensity',
+    short:'How heavy a set is, usually as % of 1RM.',
+    def:'75% is moderate; 90%+ is heavy. In a peak, intensity climbs while volume comes down.',
+    see:['1RM','RPE'] },
+  { cat:'Loading & volume', term:'Tonnage',
+    short:'Total weight moved — sets × reps × weight, summed.',
+    def:'Rough measure of total work done in a session, week, or block.',
+    ex:'3 × 10 × 100 kg = 3,000 kg tonnage.' },
+  { cat:'Loading & volume', term:'Frequency',
+    short:'How many times per week you train a muscle.',
+    def:'For most muscles, 2× per week beats 1× when total volume is equal.' },
+  { cat:'Loading & volume', term:'Progressive overload',
+    short:'Adding stress over time so the body adapts.',
+    def:'More weight, more reps, more sets, or better form — anything that raises demand. Without it, growth stalls.' },
+
+  // --- Periodization ---
+  { cat:'Periodization', term:'Mesocycle',
+    short:'A training block of typically 3–6 weeks with one theme.',
+    def:'The mid-sized planning unit. This app uses 4-week mesos: weeks 1–3 progressive overload, week 4 deload.',
+    see:['Macrocycle','Microcycle','Deload'] },
+  { cat:'Periodization', term:'Macrocycle',
+    short:'The full plan — usually months long.',
+    def:'The 24-week plan this app builds is one macrocycle made of 6 mesocycles.',
+    see:['Mesocycle'] },
+  { cat:'Periodization', term:'Microcycle',
+    short:'A single week of training.',
+    def:'The smallest planning unit.',
+    see:['Mesocycle'] },
+  { cat:'Periodization', term:'Deload',
+    short:'A planned light week to recover before pushing again.',
+    def:'Volume cut roughly in half, intensity reduced. Fatigue clears so you come back stronger the next meso.' },
+  { cat:'Periodization', term:'Foundation',
+    short:'The first meso — build the base before pushing volume.',
+    def:'Moderate volume, technique focus, lower RPE. Preps joints, tendons, and movement patterns for harder work.' },
+  { cat:'Periodization', term:'Accumulation',
+    short:'A meso where weekly volume climbs.',
+    def:'You accumulate sets and reps to drive hypertrophy. Volume is the lever; intensity stays moderate.' },
+  { cat:'Periodization', term:'Intensification',
+    short:'A meso where weight gets heavier and volume drops.',
+    def:'Lower reps, higher percentages of 1RM, fewer total sets. Builds strength on top of the size you accumulated.' },
+  { cat:'Periodization', term:'Specialization',
+    short:'A meso that pushes extra volume into your priority muscles.',
+    def:'Muscles you flagged Priority get +25% volume in this app while others run at maintenance.' },
+  { cat:'Periodization', term:'Realization',
+    short:'A meso where the adaptations show up as performance.',
+    def:'Volume comes down, fatigue clears, and the strength and size you built becomes usable.' },
+
+  // --- Exercise types ---
+  { cat:'Exercise types', term:'Compound',
+    short:'A lift that moves multiple joints and trains multiple muscles.',
+    def:'Squat, bench, deadlift, row, OHP, pull-up. Highest bang-for-buck movements.',
+    see:['Isolation'] },
+  { cat:'Exercise types', term:'Isolation',
+    short:'A lift that moves one joint and targets one muscle.',
+    def:'Bicep curl, lateral raise, leg curl, triceps pushdown. Used to add focused volume.',
+    see:['Compound'] },
+  { cat:'Exercise types', term:'Eccentric',
+    short:'The lowering phase of a rep.',
+    def:'Lowering the bar in a bench press, descending in a squat. Often controlled (2–3 seconds) for hypertrophy.',
+    see:['Concentric','Tempo'] },
+  { cat:'Exercise types', term:'Concentric',
+    short:'The lifting phase of a rep.',
+    def:'Pressing the bar up, standing out of a squat.',
+    see:['Eccentric'] },
+  { cat:'Exercise types', term:'Tempo',
+    short:'Prescribed speed for each phase of a rep.',
+    def:'Written as "3-1-X-0" → 3 sec eccentric, 1 sec pause, explosive concentric, 0 sec rest at top.' },
+  { cat:'Exercise types', term:'AMRAP', full:'As Many Reps As Possible',
+    short:'A set where you do as many reps as you can.',
+    def:'Usually the last set of an exercise. Stop one rep short of failure unless told otherwise.' },
+  { cat:'Exercise types', term:'Unilateral',
+    short:'A lift done one limb at a time (or one side leading).',
+    def:'Bulgarian split squat, single-arm DB row. Builds balance, fixes side-to-side weakness.' },
+
+  // --- Splits ---
+  { cat:'Splits', term:'Full Body',
+    short:'Every session trains the whole body.',
+    def:'Best for 3 days/week. Higher frequency per muscle, lower per-session volume.' },
+  { cat:'Splits', term:'Upper / Lower',
+    short:'4-day split alternating upper-body and lower-body sessions.',
+    def:'Each muscle gets trained twice a week. Common and balanced.' },
+  { cat:'Splits', term:'Push / Pull / Legs', full:'PPL',
+    short:'A 3- or 6-day split organized by movement type.',
+    def:'Push = chest/shoulders/triceps. Pull = back/biceps. Legs = quads/hams/glutes/calves/core.' },
+
+  // --- Nutrition ---
+  { cat:'Nutrition', term:'TDEE', full:'Total Daily Energy Expenditure',
+    short:'The calories your body burns in a typical day.',
+    def:'BMR + activity. The baseline for figuring out whether you\'re in a surplus or deficit.',
+    see:['BMR'] },
+  { cat:'Nutrition', term:'BMR', full:'Basal Metabolic Rate',
+    short:'Calories you\'d burn at rest, doing nothing.',
+    def:'About 60–70% of total daily burn. Estimated here using Mifflin-St Jeor.',
+    see:['TDEE'] },
+  { cat:'Nutrition', term:'Cut',
+    short:'Eating in a calorie deficit to lose fat.',
+    def:'Typically TDEE × 0.80. Target ~0.5–1% bodyweight loss per week.' },
+  { cat:'Nutrition', term:'Bulk',
+    short:'Eating in a calorie surplus to build muscle.',
+    def:'Typically TDEE × 1.10–1.15 for a lean bulk. The surplus gives the body the extra energy it needs to build new tissue.',
+    see:['Aggressive Bulk','Lean gain','Cut'] },
+  { cat:'Nutrition', term:'Aggressive Bulk',
+    short:'A larger surplus (~20%) to maximize muscle gain — accepts more fat.',
+    def:'Best for skinny lifters with no fat to lose who want fast progress. Target +0.5–0.7% bodyweight per week. Expect a cut later.',
+    see:['Bulk','Lean gain','Mini-Cut'] },
+  { cat:'Nutrition', term:'Mini-Cut',
+    short:'A short, aggressive cut (3–6 weeks) to strip fat between gain phases.',
+    def:'Roughly TDEE × 0.80. Used when a bulk has added too much fat, or to lean out before another bulk.',
+    see:['Cut','Bulk','Diet break'] },
+  { cat:'Nutrition', term:'Surplus',
+    short:'Eating more calories than you burn.',
+    def:'The state required to add tissue (muscle or fat).' },
+  { cat:'Nutrition', term:'Deficit',
+    short:'Eating fewer calories than you burn.',
+    def:'The state required to lose weight. 1 lb of fat ≈ 3,500 kcal.' },
+  { cat:'Nutrition', term:'Lean gain',
+    short:'A small surplus (~10%) to add muscle with minimal fat.' },
+  { cat:'Nutrition', term:'Maintenance',
+    short:'Eating roughly TDEE — bodyweight stays flat.' },
+  { cat:'Nutrition', term:'Recomp', full:'Body Recomposition',
+    short:'Building muscle and losing fat at the same time — slowly.',
+    def:'Maintenance calories with high protein and hard lifting. Realistic for beginners, returners, and people with fat to lose.' },
+  { cat:'Nutrition', term:'Macros',
+    short:'Protein, carbs, fat — your three macronutrients.',
+    def:'Protein for muscle (~2 g/kg bodyweight), carbs for training fuel, fat for hormones (~0.7–1 g/kg).' },
+  { cat:'Nutrition', term:'Diet break',
+    short:'A 1–2 week pause from a cut at maintenance calories.',
+    def:'Lets hormones and hunger reset before resuming the deficit.' },
+  { cat:'Nutrition', term:'Reverse diet',
+    short:'Slowly raising calories after a cut to find your new maintenance.' },
+];
+const GLOSSARY_MAP = Object.fromEntries(GLOSSARY.map(g=>[g.term.toLowerCase(), g]));
+function helpFor(term){
+  const g = GLOSSARY_MAP[String(term).toLowerCase()];
+  if(!g) return '';
+  const full = g.full ? ` (${g.full})` : '';
+  return `${g.term}${full} — ${g.short}`;
+}
+function helpIcon(term){
+  const t = helpFor(term);
+  if(!t) return '';
+  return `<span class="help" title="${escapeAttr(t)}" onclick="goto('glossary');setTimeout(()=>scrollToTerm('${term}'),50)">?</span>`;
+}
+function escapeAttr(s){ return (s||'').replace(/"/g,'&quot;'); }
+
+/* ---------- State ---------- */
+const KEY = 'selfCoachedOS.v2';
+const defaultState = {
+  setup:{
+    name:'', units:'kg',
+    sex:'Male', age:30, weight:80, height:178, exp:'intermediate',
+    startDate: todayISO(),
+    goal:'hypertrophy',
+    days:4, dur:24,
+    equipment:['barbell','dumbbell','machine','cable','bodyweight'],
+    priorities: Object.fromEntries(MUSCLES.map(m=>[m.id,
+      ['quads','hamstrings','calves'].includes(m.id)?'grow':'grow'])),
+    coachTone:'encouraging', // encouraging | direct | scientific | chill
+  },
+  // Plan generation is deterministic from setup. Plan stored for browsability.
+  plan:null,         // { goal, mesos:[ { idx, label, weeks:[ { idx, deload, days:[ { idx, name, items:[ {exId, sets, reps, rpe, note} ] } ] } ] } ] }
+  completions:{},    // { sessionKey -> [ { exId, sets:[{w,r,rpe}] } ] }
+  done:{},           // { sessionKey -> true }
+  logs:[],           // free-form quick logs
+  nutrition:{ kcal:2500, p:160, c:280, f:75, days:[], phase:'lean-bulk' },
+  readiness:{ days:[] },              // {date, sleep, energy, stress, soreness, pain, painArea, score, notes}
+  adjustments:{},                     // sessionKey -> pct adjustment from readiness
+  skips:{},                           // sessionKey -> true if user explicitly skipped
+  prs:[],                             // [{date, exId, e1rm, weight, reps, rpe}]
+  uiTab:'dash',
+  ui:{ mesoIdx:0, weekIdx:0, sessionWeek:0, sessionDay:0 },
+  onboarded:false,
+};
+let state = load();
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(!raw) return JSON.parse(JSON.stringify(defaultState));
+    return deepMerge(JSON.parse(JSON.stringify(defaultState)), JSON.parse(raw));
+  }catch(e){ return JSON.parse(JSON.stringify(defaultState)); }
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+}
+function deepMerge(a,b){
+  if(Array.isArray(b)) return b.slice();
+  if(typeof b!=='object'||b===null) return b;
+  const out = (typeof a==='object'&&a!==null)?{...a}:{};
+  for(const k of Object.keys(b)) out[k]=deepMerge(a?a[k]:undefined, b[k]);
+  return out;
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function uid(){ return Math.random().toString(36).slice(2,9); }
+
+/* ---------- Utilities ---------- */
+function unitLabel(){ return state.setup.units; }
+function fmtW(n){ if(n==null||isNaN(n)) return '—'; const r=Math.round(n*10)/10; return (r%1===0?r.toFixed(0):r.toFixed(1))+' '+unitLabel(); }
+function fmtPct(n){ return (Math.round(n*10)/10)+'%'; }
+function escapeHtml(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(window.__t); window.__t=setTimeout(()=>t.classList.remove('show'),1800); }
+function exById(id){ return EX.find(e=>e.id===id); }
+
+/* ---------- Readiness, Coach voice, Missed sessions, PRs ---------- */
+const COACH_AVATAR = 'C';
+const COACH_NAMES = { encouraging:'Coach', direct:'Coach', scientific:'Coach', chill:'Coach' };
+
+/* Readiness score: 1–10 from 4 inputs (sleep, energy, stress, soreness).
+   Stress is inverted (high stress = low readiness). */
+function readinessScore(r){
+  if(!r) return null;
+  const sleep = +r.sleep||3, energy = +r.energy||3, stress = +r.stress||3, sore = +r.soreness||3;
+  // each 1-5; combine and rescale
+  const raw = (sleep + energy + (6-stress) + (6-sore)) / 4; // 1-5
+  let s = Math.round(((raw - 1) / 4) * 9 + 1); // 1-10
+  if(r.pain) s = Math.max(1, s - 2);
+  return Math.max(1, Math.min(10, s));
+}
+function readinessForToday(){
+  const today = todayISO();
+  return (state.readiness.days||[]).find(d=>d.date===today) || null;
+}
+function readinessAdjustmentPct(score){
+  if(score==null) return 0;
+  if(score>=9) return +2.5;     // bump optional
+  if(score>=7) return 0;
+  if(score>=5) return -5;
+  if(score>=3) return -10;
+  return -15; // 1-2: heavy reduction, recommend rest
+}
+function readinessRpeCap(score){
+  if(score==null) return null;
+  if(score>=7) return null;
+  if(score>=5) return 8;
+  if(score>=3) return 7;
+  return 6;
+}
+
+/* Apply readiness to a day's items — returns adjusted copy */
+function adjustItemsForReadiness(items, score){
+  if(score==null) return items;
+  const pct = readinessAdjustmentPct(score);
+  const rpeCap = readinessRpeCap(score);
+  return items.map(it=>{
+    const out = {...it};
+    out._adjPct = pct;
+    if(rpeCap!==null && Number(out.rpe) > rpeCap) { out._origRpe = out.rpe; out.rpe = rpeCap; }
+    return out;
+  });
+}
+
+/* Coach voice — generate a 1–2 sentence note for the current session.
+   Tone-aware. Uses last session of same lift, position in meso, readiness, and PRs. */
+function pickTone(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function generateCoachNote(ctx){
+  const tone = (state.setup.coachTone||'encouraging');
+  const meso = ctx.meso, day = ctx.day, score = ctx.readinessScore, deload = ctx.isDeload, peakWeek = ctx.peakWeek;
+  const lastBest = ctx.lastBestEx; // {n, weight, reps, rpe} or null
+  const recentPRs = ctx.recentPRs || [];
+
+  // Build a small list of candidate fragments, then join the best 2.
+  const lines = [];
+
+  // 1) Phase / week framing
+  if(deload){
+    lines.push({
+      encouraging:`Deload week — drop the ego, move clean. You're stockpiling adaptations.`,
+      direct:`Deload. Half the volume. Don't grind. The point is recovery.`,
+      scientific:`Planned deload to clear accumulated fatigue and resensitize you to volume next week.`,
+      chill:`Easy week. Show up, move well, leave reps in the tank.`,
+    }[tone]);
+  } else if(peakWeek){
+    lines.push({
+      encouraging:`Peak week of the meso — this is where the bar moves. Stay sharp.`,
+      direct:`Peak week. Hit the target sets. No misses.`,
+      scientific:`Top set today should reflect 3 weeks of progressive overload. Aim for the prescribed RPE — no overshoot.`,
+      chill:`Heaviest week of the block. Take your time between sets and let it cook.`,
+    }[tone]);
+  } else {
+    lines.push({
+      encouraging:`${meso.label} — ${day.name}. Stack a solid one and build on last week.`,
+      direct:`${day.name}. Hit the targets. Move on.`,
+      scientific:`${meso.label}: ${meso.meta.repsRange} reps on mains, ${meso.meta.isolReps} on isolation. Stay within the prescribed RPE band.`,
+      chill:`${day.name} today. Nothing fancy — just put in the reps.`,
+    }[tone]);
+  }
+
+  // 2) Last-session callback
+  if(lastBest){
+    const w = fmtW(lastBest.weight);
+    const targetMsg = `Last ${lastBest.n}: ${lastBest.reps} × ${w} @ RPE ${lastBest.rpe}.`;
+    lines.push({
+      encouraging:`${targetMsg} Beat one of those numbers today and you're moving.`,
+      direct:`${targetMsg} Add weight or add a rep.`,
+      scientific:`${targetMsg} A small overload (≈2.5 ${unitLabel()} or +1 rep) is enough this session.`,
+      chill:`${targetMsg} Same or a touch more today, whatever feels right.`,
+    }[tone]);
+  }
+
+  // 3) Readiness commentary (if score available)
+  if(score!=null){
+    if(score>=8){
+      lines.push({
+        encouraging:`Readiness is high — if a set flies, push the next one. Don't be afraid to add 2.5.`,
+        direct:`You feel good. Use it. Bump loads if RPE is low.`,
+        scientific:`High readiness (${score}/10) — small upward auto-regulation is appropriate.`,
+        chill:`You're feeling sharp today. Ride it.`,
+      }[tone]);
+    } else if(score<=4){
+      lines.push({
+        encouraging:`Low-readiness day. I've shaved the top sets 5–10%. Show up, that's the win.`,
+        direct:`Bad readiness — loads cut, RPE capped. Don't push. Get the work done.`,
+        scientific:`Low readiness (${score}/10): −${Math.abs(readinessAdjustmentPct(score))}% load and RPE cap applied. Conservative work today.`,
+        chill:`Off day, no big deal. We trimmed it. Just move and go home.`,
+      }[tone]);
+    }
+  }
+
+  // 4) PR callback
+  if(recentPRs.length){
+    const lastPR = recentPRs[0];
+    const exName = (exById(lastPR.exId)||{n:lastPR.exId}).n;
+    lines.push({
+      encouraging:`Heads up — you set an e1RM PR on ${exName} ${daysAgo(lastPR.date)}. Don't chase a new one today; let the volume work.`,
+      direct:`Recent PR on ${exName}. Keep stacking volume; PRs follow.`,
+      scientific:`Recent e1RM PR on ${exName} (${fmtW(lastPR.e1rm)}). Maintain prescribed RPE — don't push for another peak immediately.`,
+      chill:`PR'd ${exName} not long ago — nice. Don't go hunting another one, just train.`,
+    }[tone]);
+  }
+
+  // Join first 1–2 unique lines
+  const seen = new Set(); const out=[];
+  for(const l of lines){ if(l && !seen.has(l)){ seen.add(l); out.push(l); if(out.length>=2) break; } }
+  return out.join(' ');
+}
+
+function daysAgo(iso){
+  const d = (Date.now() - new Date(iso).getTime())/86400000;
+  if(d<1) return 'today';
+  if(d<2) return 'yesterday';
+  return Math.floor(d) + ' days ago';
+}
+
+/* Find the most-recent logged set for a given exercise id (in completions or logs). */
+function lastBestForExercise(exId){
+  const exName = (exById(exId)||{}).n;
+  // First check completions
+  const entries = [];
+  for(const skey of Object.keys(state.completions||{})){
+    const date = skey.split('|')[0];
+    const recs = state.completions[skey] || [];
+    for(const r of recs){
+      if(r.exId!==exId) continue;
+      for(const s of (r.sets||[])){
+        if(s.w && s.r) entries.push({date, weight:+s.w, reps:+s.r, rpe:+s.rpe||null, n:exName});
+      }
+    }
+  }
+  // Also check free logs (matches by name)
+  for(const l of (state.logs||[])){
+    if(l.ex===exName) entries.push({date:l.date, weight:+l.weight, reps:+l.reps, rpe:l.rpe?+l.rpe:null, n:exName});
+  }
+  if(!entries.length) return null;
+  // Pick most recent date; among that date, the heaviest e1RM (or just heaviest weight)
+  entries.sort((a,b)=> a.date<b.date?1:-1);
+  const top = entries.slice(0,8);
+  top.sort((a,b)=>{
+    const eA = a.rpe?estimatedOneRM(a.weight,a.reps,a.rpe):a.weight*a.reps;
+    const eB = b.rpe?estimatedOneRM(b.weight,b.reps,b.rpe):b.weight*b.reps;
+    return eB-eA;
+  });
+  return top[0];
+}
+
+/* PR detection: after a set is logged, see if its e1RM is the highest in last 60 days for that exercise. */
+function detectAndRecordPRs(skey){
+  if(!state.completions[skey]) return [];
+  const today = (skey.split('|')[0]) || todayISO();
+  const cutoff = (new Date(today).getTime()) - 60*86400000;
+  const newPRs = [];
+  for(const rec of state.completions[skey]){
+    const ex = exById(rec.exId); if(!ex) continue;
+    for(const s of (rec.sets||[])){
+      if(!s.w || !s.r) continue;
+      const rpe = s.rpe||10;
+      const e1 = estimatedOneRM(+s.w, +s.r, rpe);
+      // Find best e1rm for this exercise in last 60 days excluding today
+      let best = 0;
+      for(const otherKey of Object.keys(state.completions)){
+        if(otherKey===skey) continue;
+        const od = otherKey.split('|')[0];
+        if(new Date(od).getTime() < cutoff) continue;
+        for(const r2 of state.completions[otherKey]){
+          if(r2.exId!==rec.exId) continue;
+          for(const s2 of (r2.sets||[])){
+            if(!s2.w||!s2.r) continue;
+            const e2 = estimatedOneRM(+s2.w, +s2.r, s2.rpe||10);
+            if(e2>best) best=e2;
+          }
+        }
+      }
+      if(e1 > best && e1 > 0){
+        const pr = { date:today, exId:rec.exId, e1rm:e1, weight:+s.w, reps:+s.r, rpe };
+        // Only record once per exercise per session — keep heaviest e1rm
+        const existing = newPRs.find(p=>p.exId===pr.exId);
+        if(!existing) newPRs.push(pr);
+        else if(pr.e1rm>existing.e1rm) Object.assign(existing, pr);
+      }
+    }
+  }
+  if(newPRs.length){
+    state.prs = [...newPRs, ...(state.prs||[])].slice(0,200);
+    save();
+  }
+  return newPRs;
+}
+
+function recentPRsForLift(exId, withinDays){
+  const cutoff = Date.now() - (withinDays||14)*86400000;
+  return (state.prs||[]).filter(p=>p.exId===exId && new Date(p.date).getTime()>=cutoff);
+}
+
+/* Missed-session detection: walk back from today; for each scheduled day before today that has no completion+done and is not in skips, flag the most recent one. */
+function detectMissedSession(){
+  if(!state.plan) return null;
+  const start = new Date(state.setup.startDate||todayISO());
+  const todayD = new Date(todayISO());
+  // Scheduled day of week mapping: day 0 = Sun, we map session index by (date - start) days % daysPerWeek
+  // Simpler: walk back day by day up to 7 days. If a scheduled day (every day for now) has no done flag and no explicit skip, flag it.
+  for(let back=1; back<=7; back++){
+    const d = new Date(todayD.getTime() - back*86400000);
+    if(d < start) break;
+    const ms = d.getTime() - start.getTime();
+    const week = Math.floor(ms/(7*86400000));
+    const mi = Math.min(state.plan.mesos.length-1, Math.floor(week/4));
+    const wi = Math.min(3, week - mi*4);
+    const di = d.getDay() % Math.max(1, state.setup.days);
+    const key = `${d.toISOString().slice(0,10)}|M${mi+1}W${wi+1}D${di+1}`;
+    if(state.done[key]) continue;
+    if(state.skips[key]) continue;
+    // Check that some completion has at least one set
+    const recs = state.completions[key] || [];
+    let hasSets = false;
+    for(const r of recs) for(const s of (r.sets||[])) if(s.w) { hasSets=true; break; }
+    if(hasSets) continue;
+    // Flag this one
+    return { key, date:d.toISOString().slice(0,10), mi, wi, di };
+  }
+  return null;
+}
+
+function adherenceRate(){
+  // Sessions scheduled since start = days since start (capped at total plan days, * days/week / 7)
+  if(!state.plan) return null;
+  const start = new Date(state.setup.startDate||todayISO()).getTime();
+  const days = Math.max(1, Math.floor((Date.now()-start)/86400000));
+  const expectedSessions = Math.floor(days * (state.setup.days/7));
+  const done = Object.keys(state.done||{}).filter(k=>state.done[k]).length;
+  if(expectedSessions<1) return null;
+  return Math.min(100, Math.round((done/expectedSessions)*100));
+}
+
+/* ---------- Goal periodization ---------- */
+function mesoPlan(goal){
+  if(goal==='hypertrophy'){
+    return [
+      {label:'Foundation',      volMult:0.75, intMult:0.85, repsRange:'8-12', isolReps:'12-15'},
+      {label:'Accumulation 1',  volMult:0.90, intMult:0.90, repsRange:'8-12', isolReps:'10-15'},
+      {label:'Accumulation 2',  volMult:1.00, intMult:0.95, repsRange:'8-12', isolReps:'10-15'},
+      {label:'Intensification', volMult:0.80, intMult:1.05, repsRange:'5-8',  isolReps:'8-12'},
+      {label:'Specialization',  volMult:1.10, intMult:1.00, repsRange:'6-10', isolReps:'10-15', priorityBonus:1.25},
+      {label:'Realization',     volMult:0.85, intMult:1.05, repsRange:'5-8',  isolReps:'8-12'},
+    ];
+  }
+  if(goal==='recomp'){
+    return [
+      {label:'Cut Phase 1',  volMult:0.85, intMult:0.95, repsRange:'6-10', isolReps:'10-15', note:'Calorie deficit. Keep loads, drop a set if recovery suffers.'},
+      {label:'Cut Phase 2',  volMult:0.85, intMult:0.95, repsRange:'6-10', isolReps:'10-15'},
+      {label:'Diet Break',   volMult:0.75, intMult:0.90, repsRange:'6-10', isolReps:'10-15', note:'Maintenance calories for 2-4 weeks. Reset hormones.'},
+      {label:'Cut Phase 3',  volMult:0.85, intMult:0.95, repsRange:'6-10', isolReps:'10-15'},
+      {label:'Cut Phase 4',  volMult:0.85, intMult:0.95, repsRange:'6-10', isolReps:'10-15'},
+      {label:'Reverse',      volMult:0.90, intMult:1.00, repsRange:'6-10', isolReps:'10-15', note:'Slowly raise calories back to maintenance.'},
+    ];
+  }
+  // powerbuilding
+  return [
+    {label:'Strength 1',     volMult:0.80, intMult:1.05, repsRange:'4-6',  isolReps:'8-12'},
+    {label:'Hypertrophy 1',  volMult:1.00, intMult:0.90, repsRange:'8-12', isolReps:'10-15'},
+    {label:'Strength 2',     volMult:0.80, intMult:1.10, repsRange:'3-5',  isolReps:'8-12'},
+    {label:'Hypertrophy 2',  volMult:1.05, intMult:0.90, repsRange:'8-12', isolReps:'10-15'},
+    {label:'Strength Peak',  volMult:0.70, intMult:1.15, repsRange:'2-4',  isolReps:'6-10'},
+    {label:'Hypertrophy 3',  volMult:1.00, intMult:0.95, repsRange:'6-10', isolReps:'10-15'},
+  ];
+}
+
+/* ---------- Splits ---------- */
+/* Each split is days/week → array of day-objects with primary muscle groups */
+const SPLITS = {
+  3:[
+    {name:'Full Body A', muscles:['quads','chest','back','core'], extras:['biceps','calves']},
+    {name:'Full Body B', muscles:['hamstrings','shoulders','back','glutes'], extras:['triceps','core']},
+    {name:'Full Body C', muscles:['quads','chest','back','hamstrings'], extras:['shoulders','calves','biceps','triceps']},
+  ],
+  4:[
+    {name:'Upper A', muscles:['chest','back','shoulders'], extras:['triceps','biceps']},
+    {name:'Lower A', muscles:['quads','hamstrings','glutes'], extras:['calves','core']},
+    {name:'Upper B', muscles:['back','chest','shoulders'], extras:['biceps','triceps']},
+    {name:'Lower B', muscles:['hamstrings','glutes','quads'], extras:['calves','core']},
+  ],
+  5:[
+    {name:'Push', muscles:['chest','shoulders','triceps'], extras:[]},
+    {name:'Pull', muscles:['back','biceps'], extras:['core']},
+    {name:'Legs', muscles:['quads','hamstrings','glutes'], extras:['calves']},
+    {name:'Upper', muscles:['chest','back','shoulders'], extras:['biceps','triceps']},
+    {name:'Lower', muscles:['hamstrings','glutes','quads'], extras:['calves','core']},
+  ],
+  6:[
+    {name:'Push A', muscles:['chest','shoulders','triceps'], extras:[]},
+    {name:'Pull A', muscles:['back','biceps'], extras:['core']},
+    {name:'Legs A (Quad focus)', muscles:['quads','glutes'], extras:['calves']},
+    {name:'Push B', muscles:['shoulders','chest','triceps'], extras:[]},
+    {name:'Pull B', muscles:['back','biceps'], extras:['core']},
+    {name:'Legs B (Posterior)', muscles:['hamstrings','glutes'], extras:['calves','quads']},
+  ],
+};
+
+/* ---------- Volume allocation ---------- */
+function weeklyTargetSets(muscleId, prioritiesObj, mesoMeta){
+  const p = prioritiesObj[muscleId] || 'maintain';
+  let base = VOL_TARGETS[p] || 0;
+  if(mesoMeta && mesoMeta.priorityBonus && p==='priority') base = Math.round(base * mesoMeta.priorityBonus);
+  return base;
+}
+
+/* Pick best exercise for a muscle filtered by equipment, alternating compound/isolation */
+function pickExercises(muscleId, equip, options={}){
+  const pool = EX.filter(e=> e.pri===muscleId && equip.includes(e.equip));
+  if(pool.length===0) return [];
+  // Prefer compound first, then isolation. Vary by index for diversity.
+  const comp = pool.filter(e=>e.type==='compound');
+  const iso  = pool.filter(e=>e.type==='isolation');
+  return {compound:comp, isolation:iso, all:pool};
+}
+
+/* Pick exercises for a given day:
+   For each muscle in day.muscles + extras: pick one compound primary, and N isolation
+   based on weekly target / sessions in week.
+*/
+function buildDay(dayDef, sessionIndex, daysInWeek, prio, equip, mesoMeta, allMusclesInWeek){
+  // Compute sets-per-session for each muscle in this day
+  const items = [];
+  // Track sets allocated per muscle in this day for variety
+  const allocateForMuscle = (mId, isPrimaryDay)=>{
+    const totalWeek = weeklyTargetSets(mId, prio, mesoMeta);
+    if(totalWeek<=0) return [];
+    const sessionsForMuscle = countSessions(mId, daysInWeek, prio); // how many days/week hit this muscle
+    if(sessionsForMuscle===0) return [];
+    let perSession = Math.max(2, Math.round(totalWeek/sessionsForMuscle));
+    // cap per-session sets
+    perSession = Math.min(perSession, 8);
+    // Pick exercises
+    const pools = pickExercises(mId, equip);
+    if(!pools || pools.all.length===0) return [];
+    const out = [];
+    // Prefer 1 compound (3-4 sets) + 1 isolation (rest of sets) if both available
+    if(pools.compound.length && isPrimaryDay){
+      const c = pools.compound[(sessionIndex)%pools.compound.length];
+      const compSets = Math.min(perSession, mesoMeta.repsRange.startsWith('2-')||mesoMeta.repsRange.startsWith('3-')||mesoMeta.repsRange.startsWith('4-')?5:4);
+      out.push({ exId:c.id, sets:compSets, reps:mesoMeta.repsRange, rpe:mesoMeta.intMult>=1?8.5:8 });
+      perSession -= compSets;
+    }
+    if(perSession>0){
+      if(pools.isolation.length){
+        const iso = pools.isolation[(sessionIndex)%pools.isolation.length];
+        out.push({ exId:iso.id, sets:Math.max(2,perSession), reps:mesoMeta.isolReps, rpe:9 });
+      } else if(pools.compound.length){
+        // No isolation available — second compound
+        const c2 = pools.compound[(sessionIndex+1)%pools.compound.length];
+        out.push({ exId:c2.id, sets:Math.max(2,perSession), reps:mesoMeta.repsRange, rpe:8.5 });
+      }
+    }
+    return out;
+  };
+
+  // Primary muscles get full allocation
+  for(const m of dayDef.muscles){
+    items.push(...allocateForMuscle(m, true));
+  }
+  // Extras get smaller allocation (1 exercise, 2-3 sets)
+  for(const m of (dayDef.extras||[])){
+    const items2 = allocateForMuscle(m, false);
+    // Trim extras
+    items.push(...items2.slice(0,1).map(it=>({...it, sets:Math.min(it.sets,3)})));
+  }
+  // Dedupe by exId
+  const seen = new Set();
+  return items.filter(it=>{ if(seen.has(it.exId)) return false; seen.add(it.exId); return true; });
+}
+
+/* Count sessions across the week that hit a given muscle */
+function countSessions(muscleId, daysInWeek, prio){
+  let n=0;
+  for(const d of daysInWeek){
+    if(d.muscles.includes(muscleId) || (d.extras||[]).includes(muscleId)) n++;
+  }
+  return n;
+}
+
+/* ---------- Plan generator ---------- */
+function generatePlan(){
+  const s = state.setup;
+  const meso = mesoPlan(s.goal);
+  // Trim mesos to fit duration: each meso = 4 weeks
+  const nMesos = Math.max(1, Math.min(6, Math.floor(s.dur/4)));
+  const mesos = meso.slice(0,nMesos);
+  const splitDef = SPLITS[s.days] || SPLITS[4];
+
+  const plan = { goal:s.goal, units:s.units, startDate:s.startDate, mesos:[] };
+
+  for(let mi=0; mi<mesos.length; mi++){
+    const meta = mesos[mi];
+    const mesoObj = { idx:mi, label:meta.label, meta, weeks:[] };
+    for(let wi=0; wi<4; wi++){
+      const deload = (wi===3);
+      const weekMult = deload?0.5:(0.85 + 0.075*wi); // W1 .85, W2 .925, W3 1.00, W4 .50
+      const weekObj = { idx:wi, deload, days:[] };
+      for(let di=0; di<splitDef.length; di++){
+        const dDef = splitDef[di];
+        const items = buildDay(dDef, di+wi+mi, splitDef, s.priorities, s.equipment, meta, splitDef);
+        // Apply weekly multiplier to sets
+        for(const it of items){
+          it.sets = Math.max(deload?2:2, Math.round(it.sets * (deload?0.6:weekMult)));
+        }
+        weekObj.days.push({ idx:di, name:dDef.name, items, label: deload?'Deload':(wi===2?'Peak week':'Build') });
+      }
+      mesoObj.weeks.push(weekObj);
+    }
+    plan.mesos.push(mesoObj);
+  }
+  state.plan = plan;
+  save();
+  return plan;
+}
+
+function regeneratePlan(){
+  generatePlan();
+  toast('Plan regenerated.');
+  renderAll();
+  goto('plan');
+}
+
+/* ---------- Current location in plan ---------- */
+function nowMesoWeek(){
+  if(!state.plan) return {mi:0,wi:0,di:0};
+  const start = new Date(state.setup.startDate||todayISO()).getTime();
+  const ms = Date.now() - start;
+  const week = Math.max(0, Math.floor(ms/(7*86400000)));
+  const mi = Math.min(state.plan.mesos.length-1, Math.floor(week/4));
+  const wi = Math.min(3, week - mi*4);
+  // Pick today's day-of-week mod days-per-week
+  const day = (new Date()).getDay(); // 0=Sun
+  const di = day % Math.max(1, state.setup.days);
+  return {mi,wi,di};
+}
+
+/* ---------- Rendering: tabs ---------- */
+function goto(tab){
+  state.uiTab = tab; save();
+  document.querySelectorAll('nav.tabs button').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
+  document.querySelectorAll('#mobileTabbar button').forEach(b=> b.classList.toggle('on', b.dataset && b.dataset.tab===tab));
+  document.querySelectorAll('section.tab').forEach(s=> s.style.display = (s.id==='tab-'+tab)?'block':'none');
+  // Re-trigger fade-in animation on the active tab
+  const active = document.getElementById('tab-'+tab);
+  if(active){ active.style.animation='none'; active.offsetHeight; active.style.animation=''; }
+  // Scroll to top on tab switch
+  window.scrollTo({top:0, behavior:'instant'});
+  if(tab==='dash') renderDashboard();
+  if(tab==='plan') renderPlan();
+  if(tab==='today') renderToday();
+  if(tab==='log') { renderLogTrend(); renderLogHistory(); fillExDatalist(); }
+  if(tab==='nutrition'){ renderNu(); }
+  if(tab==='tools'){ renderRpeMatrix(); renderRpeCalc(); renderWarmup(); renderPlate(); renderTDEE(); renderOneRM(); }
+  if(tab==='library'){ renderLibrary(); }
+  if(tab==='glossary'){ renderGlossary(); }
+  if(tab==='setup'){ renderSetup(); }
+}
+
+/* ---------- Dashboard ---------- */
+const charts = {};
+function destroyChart(k){ if(charts[k]){ charts[k].destroy(); delete charts[k]; } }
+function lineOpts(barLike){
+  return { responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false}, tooltip:{intersect:false, mode:'index'}},
+    scales:{ y:{ beginAtZero:!!barLike, grid:{color:'#eee'}, ticks:{font:{size:10}}},
+             x:{ grid:{display:false}, ticks:{font:{size:10}} } } };
+}
+function renderDashboard(){
+  const goal = GOALS.find(g=>g.id===state.setup.goal);
+  document.getElementById('dGoal').textContent = goal?goal.name:'—';
+  document.getElementById('dGoalSub').textContent = goal?(`${state.setup.days} d/wk · ${state.setup.dur} wk plan`):'—';
+  document.getElementById('goalChip').textContent = goal?goal.name:'No goal';
+  if(!state.plan){
+    document.getElementById('dPhase').textContent = 'Not started';
+    document.getElementById('dPhaseSub').textContent = 'Open Setup → Generate plan';
+    document.getElementById('dWeek').textContent = '—';
+    document.getElementById('dWeekSub').textContent = `of ${state.setup.dur}`;
+    document.getElementById('dSessions').textContent = '0';
+    document.getElementById('dToday').innerHTML = `<div class="empty">No plan yet. Open <b>Setup</b> and click <b>Generate plan</b>.</div>`;
+    document.getElementById('dBlockProg').textContent = '—';
+    document.getElementById('dPhaseNote').textContent = '—';
+    document.getElementById('dPhaseDesc').textContent = '—';
+    document.getElementById('dVolume').innerHTML = '';
+    return;
+  }
+  const {mi,wi,di} = nowMesoWeek();
+  const meso = state.plan.mesos[mi];
+  const week = meso.weeks[wi];
+  document.getElementById('dPhase').textContent = meso.label;
+  document.getElementById('dPhaseSub').textContent = `Meso ${mi+1} · Week ${wi+1} of 4 ${week.deload?'(Deload)':''}`;
+  const overallWeek = mi*4 + wi + 1;
+  document.getElementById('dWeek').textContent = overallWeek;
+  document.getElementById('dWeekSub').textContent = `of ${state.plan.mesos.length*4}`;
+  // Adherence
+  const adh = adherenceRate();
+  document.getElementById('dAdherence').textContent = adh==null ? '—' : adh+'%';
+  document.getElementById('dAdherenceSub').textContent = adh==null ? 'no data yet'
+    : (adh>=90 ? 'crushing it' : adh>=70 ? 'solid' : adh>=50 ? 'recoverable — adjust the week' : 'reset and re-plan');
+  // Recent PRs
+  const prs = (state.prs||[]).slice(0,6);
+  document.getElementById('dPrCount').textContent = `${(state.prs||[]).length} total`;
+  document.getElementById('dPrList').innerHTML = prs.length
+    ? prs.map(p=>`<div class="pr-list-item">
+        <div><b>${(exById(p.exId)||{n:p.exId}).n}</b> <span class="muted">· e1RM ${fmtW(p.e1rm)}</span></div>
+        <div class="muted" style="font-size:.78rem">${p.date}</div>
+      </div>`).join('')
+    : `<div class="empty">No PRs yet. Log a session and we'll detect them automatically.</div>`;
+  // Readiness sparkline (last 14 days)
+  const rDays = (state.readiness.days||[]).slice(0,14).reverse();
+  if(rDays.length){
+    const avg = (rDays.reduce((a,b)=>a+(b.score||0),0)/rDays.length).toFixed(1);
+    document.getElementById('dReadyAvg').textContent = `Avg ${avg}/10`;
+    document.getElementById('dReadySpark').innerHTML = `<div class="ready-spark">` +
+      rDays.map(d=>{
+        const s = d.score||5;
+        const cls = s>=7?'hi':(s>=4?'mid':'lo');
+        return `<div class="${cls}" style="height:${(s/10)*40}px" title="${d.date}: ${s}/10"></div>`;
+      }).join('') + `</div>`;
+  } else {
+    document.getElementById('dReadyAvg').textContent = 'no data';
+    document.getElementById('dReadySpark').innerHTML = `<div class="empty">No readiness checks yet. Open Today and run your first one.</div>`;
+  }
+
+  // Today preview
+  const day = week.days[di] || week.days[0];
+  document.getElementById('dTodayTag').textContent = day.label;
+  document.getElementById('dToday').innerHTML = `<b>${day.name}</b> · ${day.items.length} exercises<br/>
+    <ul style="padding-left:18px;margin:6px 0">${day.items.slice(0,4).map(it=>`<li>${exById(it.exId)?.n||it.exId} — ${it.sets}×${it.reps} @ RPE ${it.rpe}</li>`).join('')}${day.items.length>4?`<li class="muted">+ ${day.items.length-4} more</li>`:''}</ul>`;
+
+  // Block progress
+  const totalWeeks = state.plan.mesos.length*4;
+  document.getElementById('dBlockProg').textContent = `Week ${overallWeek} / ${totalWeeks}`;
+  document.getElementById('dProgBar').style.width = `${(overallWeek/totalWeeks)*100}%`;
+  document.getElementById('dPhaseNote').textContent = week.deload? 'Deload week — drop volume, keep movement.' : `Week ${wi+1} of meso 4-week cycle.`;
+  document.getElementById('dPhaseDesc').textContent = `Phase target: ${meso.meta.repsRange} reps on main lifts, ${meso.meta.isolReps} on isolation. ${meso.meta.note||''}`;
+
+  // Volume vs target
+  const setsByMuscle = countWeeklySetsForPlan(meso, wi);
+  const targetByMuscle = {};
+  for(const m of MUSCLES) targetByMuscle[m.id] = weeklyTargetSets(m.id, state.setup.priorities, meso.meta);
+  let volHtml = '';
+  for(const m of MUSCLES){
+    const got = setsByMuscle[m.id]||0; const target = targetByMuscle[m.id]||0;
+    const pct = target? Math.min(100, Math.round((got/target)*100)) : 0;
+    const cls = state.setup.priorities[m.id]==='priority'?'':(state.setup.priorities[m.id]==='maintain'?'maint':'grow');
+    volHtml += `<div class="vol-bar">
+      <span class="nm">${m.name}</span>
+      <span class="track"><span class="fill ${cls}" style="width:${pct}%"></span></span>
+      <span class="v">${got}/${target||0}</span>
+    </div>`;
+  }
+  document.getElementById('dVolume').innerHTML = volHtml;
+
+  // Charts
+  // Bodyweight
+  const bwPts = (state.nutrition.days||[]).filter(d=>d.bw).sort((a,b)=>a.date<b.date?-1:1);
+  destroyChart('bw');
+  charts.bw = new Chart(document.getElementById('dChBw'), {
+    type:'line',
+    data:{ labels:bwPts.map(p=>p.date), datasets:[{label:'BW', data:bwPts.map(p=>p.bw),
+      borderColor:'#0a0a0a', backgroundColor:'#0a0a0a22', tension:.2, pointRadius:3}]},
+    options:lineOpts(),
+  });
+  // Tonnage by week from logs
+  const weekly = computeWeeklyTonnage();
+  destroyChart('ton');
+  charts.ton = new Chart(document.getElementById('dChTon'), {
+    type:'bar',
+    data:{ labels:weekly.map(w=>w.week), datasets:[{label:'Tonnage', data:weekly.map(w=>w.ton),
+      backgroundColor:'#dc2626', borderRadius:4}]},
+    options:lineOpts(true),
+  });
+  // Sessions per week
+  const sesPerWeek = computeSessionsPerWeek();
+  destroyChart('ses');
+  charts.ses = new Chart(document.getElementById('dChSes'), {
+    type:'bar',
+    data:{ labels:sesPerWeek.map(w=>w.week), datasets:[{label:'Sessions', data:sesPerWeek.map(w=>w.n),
+      backgroundColor:'#0a0a0a', borderRadius:4}]},
+    options:lineOpts(true),
+  });
+}
+function countWeeklySetsForPlan(meso, wi){
+  const out={};
+  if(!meso) return out;
+  const wk = meso.weeks[wi]; if(!wk) return out;
+  for(const d of wk.days){
+    for(const it of d.items){
+      const ex = exById(it.exId); if(!ex) continue;
+      out[ex.pri] = (out[ex.pri]||0) + (it.sets||0);
+      for(const s of ex.sec) out[s] = (out[s]||0) + Math.round((it.sets||0)*0.4);
+    }
+  }
+  return out;
+}
+function isoWeek(d){ const dt = new Date(d); dt.setHours(0,0,0,0); dt.setDate(dt.getDate()+4-(dt.getDay()||7));
+  const ys = new Date(dt.getFullYear(),0,1);
+  return dt.getFullYear()+'-W'+String(Math.ceil(((dt-ys)/86400000+1)/7)).padStart(2,'0');
+}
+function computeWeeklyTonnage(){
+  const map={};
+  for(const l of state.logs){
+    const k = isoWeek(l.date);
+    map[k] = (map[k]||0) + (l.weight*l.reps*l.sets);
+  }
+  // Add completions
+  for(const k of Object.keys(state.completions||{})){
+    const sets = state.completions[k] || [];
+    for(const ex of sets){
+      for(const s of (ex.sets||[])) {
+        const wk = isoWeek(k.split('|')[0] || todayISO());
+        map[wk] = (map[wk]||0) + (s.w*s.r);
+      }
+    }
+  }
+  const keys = Object.keys(map).sort();
+  return keys.slice(-12).map(k=>({week:k.split('-W')[1], ton:Math.round(map[k])}));
+}
+function computeSessionsPerWeek(){
+  const map={};
+  for(const k of Object.keys(state.done||{})){
+    if(!state.done[k]) continue;
+    const date = k.split('|')[0];
+    const wk = isoWeek(date);
+    map[wk] = (map[wk]||0)+1;
+  }
+  const keys = Object.keys(map).sort();
+  return keys.slice(-12).map(k=>({week:k.split('-W')[1], n:map[k]}));
+}
+
+/* ---------- Plan view ---------- */
+function renderPlan(){
+  if(!state.plan){
+    document.getElementById('planBody').innerHTML = `<div class="empty">No plan yet. Open <b>Setup</b> and click <b>Generate plan</b>.</div>`;
+    document.getElementById('planMesoNav').innerHTML='';
+    document.getElementById('planWeekNav').innerHTML='';
+    return;
+  }
+  const goal = GOALS.find(g=>g.id===state.plan.goal);
+  document.getElementById('planTitle').textContent = `Your ${state.setup.dur}-Week Plan — ${goal?goal.name:''}`;
+  document.getElementById('planSubtitle').textContent = `${state.plan.mesos.length} mesocycles · ${state.setup.days} sessions per week · ${listPriorityNames()} prioritized.`;
+
+  let mn=''; for(let i=0;i<state.plan.mesos.length;i++){
+    mn += `<span class="chip ${i===state.ui.mesoIdx?'active red':''}" onclick="planMeso(${i})">M${i+1} · ${state.plan.mesos[i].label}</span>`;
+  }
+  document.getElementById('planMesoNav').innerHTML = mn;
+  let wn=''; for(let i=0;i<4;i++){
+    const d = i===3?'D':'';
+    wn += `<span class="chip ${i===state.ui.weekIdx?'active':''}" onclick="planWeek(${i})">W${i+1}${d?' · Deload':''}</span>`;
+  }
+  document.getElementById('planWeekNav').innerHTML = wn;
+
+  const meso = state.plan.mesos[state.ui.mesoIdx];
+  const wk = meso.weeks[state.ui.weekIdx];
+  let html = '';
+  for(const day of wk.days){
+    html += `<div class="card flush" style="margin-bottom:12px">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <div><h2 style="margin:0">${day.name}</h2><div class="muted" style="font-size:.78rem">${day.items.length} exercises · ${day.label}</div></div>
+        <div>
+          <span class="pill ${wk.deload?'yellow':(state.ui.weekIdx===2?'green':'')}">${day.label}</span>
+          <button class="btn sm" onclick="startSessionAt(${state.ui.mesoIdx},${state.ui.weekIdx},${day.idx})">Train this →</button>
+        </div>
+      </div>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Exercise</th><th>Primary</th><th>Sets</th><th>Reps</th><th>RPE${helpIcon('RPE')}</th><th>Equip</th></tr></thead><tbody>`;
+    for(const it of day.items){
+      const ex = exById(it.exId);
+      if(!ex) continue;
+      html += `<tr>
+        <td><b>${ex.n}</b></td>
+        <td><span class="pill">${MNAME[ex.pri]}</span></td>
+        <td>${it.sets}</td>
+        <td>${it.reps}</td>
+        <td>${it.rpe}</td>
+        <td><span class="muted" style="font-size:.78rem">${ex.equip}</span></td>
+      </tr>`;
+    }
+    html += `</tbody></table></div></div>`;
+  }
+  document.getElementById('planBody').innerHTML = html;
+}
+function planMeso(i){ state.ui.mesoIdx=i; state.ui.weekIdx=0; save(); renderPlan(); }
+function planWeek(i){ state.ui.weekIdx=i; save(); renderPlan(); }
+function listPriorityNames(){
+  const names = MUSCLES.filter(m=>state.setup.priorities[m.id]==='priority').map(m=>m.name);
+  return names.length? names.join(' + ') : 'no muscles';
+}
+function printPlan(){ window.print(); }
+
+/* ---------- Today / session logger ---------- */
+function startSessionAt(mi,wi,di){
+  state.ui.sessionWeek = wi;
+  state.ui.mesoIdx = mi;
+  state.ui.sessionDay = di;
+  state.ui.weekIdx = wi;
+  goto('today');
+}
+function sessionKeyForLoc(mi,wi,di){
+  return `${todayISO()}|M${mi+1}W${wi+1}D${di+1}`;
+}
+function renderToday(){
+  if(!state.plan){ document.getElementById('todayBody').innerHTML = `<div class="empty">No plan yet — open Setup and generate one.</div>`; return; }
+  const mi = state.ui.mesoIdx;
+  const wi = state.ui.sessionWeek;
+  const di = state.ui.sessionDay;
+  const meso = state.plan.mesos[mi];
+  const wk = meso.weeks[wi];
+  const day = wk.days[di];
+  if(!day){ document.getElementById('todayBody').innerHTML = `<div class="empty">No session for this slot.</div>`; return; }
+  document.getElementById('todayTitle').textContent = `${day.name} — ${meso.label} · W${wi+1}`;
+  document.getElementById('todaySub').textContent = `Reps target ${meso.meta.repsRange} (mains) / ${meso.meta.isolReps} (isolation) · ${day.label}`;
+
+  const skey = sessionKeyForLoc(mi,wi,di);
+  state.completions[skey] = state.completions[skey] || [];
+
+  // Readiness for today
+  const r = readinessForToday();
+  const score = r ? r.score : null;
+  // Apply readiness adjustments to displayed items
+  const items = adjustItemsForReadiness(day.items, score);
+
+  // Make sure completion arrays match (use original sets count)
+  for(const it of day.items){
+    let rec = state.completions[skey].find(r=>r.exId===it.exId);
+    if(!rec){ rec = { exId:it.exId, sets: Array.from({length:it.sets},()=>({w:'',r:'',rpe:''})) };
+      state.completions[skey].push(rec); }
+    while(rec.sets.length < it.sets) rec.sets.push({w:'',r:'',rpe:''});
+    while(rec.sets.length > it.sets) rec.sets.pop();
+  }
+
+  // 1) Coach voice card — typed in after render for the cinematic feel
+  const peakWeek = (wi===2 && !wk.deload);
+  const lastBestEx = day.items.length ? lastBestForExercise(day.items[0].exId) : null;
+  const recentPRs = (state.prs||[]).slice(0,3);
+  const coachNote = generateCoachNote({ meso, day, isDeload:wk.deload, peakWeek, readinessScore:score, lastBestEx, recentPRs });
+  let html = `<div class="coach-card">
+    <div class="avatar">${COACH_AVATAR}</div>
+    <div class="body">
+      <div class="name">${COACH_NAMES[state.setup.coachTone||'encouraging']} <span class="muted">· ${state.setup.coachTone||'encouraging'} tone</span></div>
+      <div class="note typing" id="coachNote" data-text="${escapeAttr(coachNote)}"></div>
+      <div class="meta">Change tone in Setup → Coach voice.</div>
+    </div>
+  </div>`;
+
+  // 2) Readiness banner / button
+  if(score!=null){
+    const adj = readinessAdjustmentPct(score);
+    const cap = readinessRpeCap(score);
+    const pillCls = score>=7?'green':(score>=4?'yellow':'red');
+    html += `<div class="card tight" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div>
+        <span class="pill ${pillCls}">Readiness ${score}/10</span>
+        <span class="muted" style="font-size:.85rem;margin-left:6px">${adj===0?'Loads as prescribed':(adj>0?'+':'')+adj+'% applied'}${cap!==null?`, RPE capped at ${cap}`:''}.</span>
+      </div>
+      <button class="btn ghost sm" onclick="openReady()">Re-do check</button>
+    </div>`;
+  } else {
+    html += `<div class="card tight" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-left:3px solid var(--accent)">
+      <div>
+        <b>Pre-session readiness check</b>
+        <div class="muted" style="font-size:.82rem">20 seconds. Loads adjust to how you feel today.</div>
+      </div>
+      <button class="btn sm" onclick="openReady()">Start check →</button>
+    </div>`;
+  }
+
+  // 3) Missed-session banner
+  const missed = detectMissedSession();
+  if(missed){
+    const mDay = state.plan.mesos[missed.mi].weeks[missed.wi].days[missed.di];
+    html += `<div class="missed-banner">
+      <h4>Looks like you missed ${missed.date} (${mDay.name})</h4>
+      <p>No judgement. How do you want to handle it?</p>
+      <div class="actions">
+        <button class="btn sm" onclick='handleMissed("move", ${JSON.stringify(missed)})'>Pick it up today</button>
+        <button class="btn ghost sm" onclick='handleMissed("reduce", ${JSON.stringify(missed)})'>Reduce this week's volume</button>
+        <button class="btn ghost sm" onclick='handleMissed("skip", ${JSON.stringify(missed)})'>Skip & continue</button>
+      </div>
+    </div>`;
+  }
+
+  // 4) Exercise list with readiness-adjusted display
+  for(let idx=0; idx<items.length; idx++){
+    const it = items[idx];
+    const orig = day.items[idx];
+    const ex = exById(it.exId); if(!ex) continue;
+    const rec = state.completions[skey].find(r=>r.exId===orig.exId);
+    const adjPill = it._adjPct ? `<span class="adj-pill ${it._adjPct<0?'down':'up'}">${it._adjPct>0?'+':''}${it._adjPct}%</span>` : '';
+    const rpeNote = it._origRpe ? `<span class="muted" style="font-size:.74rem"> (cap from ${it._origRpe})</span>` : '';
+    html += `<div class="session-ex">
+      <div class="ex-hdr">
+        <div>
+          <h4>${ex.n} ${adjPill}</h4>
+          <div class="meta">${MNAME[ex.pri]} · ${it.sets} × ${it.reps} @ RPE ${it.rpe}${rpeNote} · ${ex.equip}</div>
+        </div>
+        <div>
+          <select onchange="swapEx('${skey}','${orig.exId}',this.value)" style="font-size:.78rem; padding:4px 8px; width:auto">
+            <option value="">Swap…</option>
+            ${EX.filter(e=>e.pri===ex.pri && state.setup.equipment.includes(e.equip)).map(e=>`<option value="${e.id}" ${e.id===orig.exId?'selected':''}>${e.n}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div>
+        <div class="set-row" style="font-weight:600;color:var(--muted)"><div class="si">#</div><div>Weight</div><div>Reps</div><div>RPE</div><div></div></div>`;
+    for(let si=0; si<orig.sets; si++){
+      const s = (rec && rec.sets[si]) || {};
+      html += `<div class="set-row">
+        <div class="si">${si+1}</div>
+        <input type="number" step="0.5" placeholder="—" value="${s.w??''}" oninput="setSet('${skey}','${orig.exId}',${si},'w',this.value)">
+        <input type="number" step="1" placeholder="—" value="${s.r??''}" oninput="setSet('${skey}','${orig.exId}',${si},'r',this.value)">
+        <input type="number" step="0.5" placeholder="—" value="${s.rpe??''}" oninput="setSet('${skey}','${orig.exId}',${si},'rpe',this.value)">
+        <button class="btn ghost sm" onclick="prefill('${skey}','${orig.exId}',${si})">↻</button>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+  html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:10px;flex-wrap:wrap">
+    <div class="muted" style="font-size:.82rem">Hit ↻ on a row to repeat the previous set's numbers.</div>
+    <div>${state.done[skey]?'<span class="pill green">Marked complete</span>':''}</div>
+  </div>`;
+  document.getElementById('todayBody').innerHTML = html;
+  // Type the coach note for the cinematic mobile feel
+  typeCoachNote();
+}
+function typeCoachNote(){
+  const el = document.getElementById('coachNote');
+  if(!el) return;
+  const text = el.dataset.text || '';
+  el.textContent = '';
+  let i = 0;
+  // Use a fast pace — ~16ms per character
+  const tick = ()=>{
+    if(i>=text.length){ el.classList.remove('typing'); return; }
+    el.textContent += text.charAt(i);
+    i++;
+    setTimeout(tick, 14);
+  };
+  tick();
+}
+function setSet(key,exId,si,field,val){
+  const rec = (state.completions[key]||[]).find(r=>r.exId===exId);
+  if(!rec) return;
+  rec.sets[si] = rec.sets[si] || {};
+  rec.sets[si][field] = val===''?'':Number(val);
+  save();
+}
+function prefill(key,exId,si){
+  // Copy from previous set in same exercise
+  const rec = (state.completions[key]||[]).find(r=>r.exId===exId);
+  if(!rec) return;
+  if(si===0) return;
+  const prev = rec.sets[si-1];
+  rec.sets[si] = {...prev};
+  save(); renderToday();
+}
+function swapEx(key,oldId,newId){
+  if(!newId) return;
+  // Replace in current day items
+  const mi = state.ui.mesoIdx, wi=state.ui.sessionWeek, di=state.ui.sessionDay;
+  const day = state.plan.mesos[mi].weeks[wi].days[di];
+  const it = day.items.find(x=>x.exId===oldId);
+  if(it) it.exId = newId;
+  // Update completion record
+  const rec = (state.completions[key]||[]).find(r=>r.exId===oldId);
+  if(rec) rec.exId = newId;
+  save(); renderToday();
+}
+function markSessionDone(){
+  const skey = sessionKeyForLoc(state.ui.mesoIdx, state.ui.sessionWeek, state.ui.sessionDay);
+  state.done[skey] = true;
+  const newPRs = detectAndRecordPRs(skey);
+  save();
+  if(newPRs.length){
+    celebratePR(newPRs[0]);
+  } else {
+    toast('Session complete.');
+  }
+  renderToday();
+}
+function celebratePR(pr){
+  const el = document.getElementById('prCelebrate');
+  if(!el) return;
+  document.getElementById('prExName').textContent = (exById(pr.exId)||{n:pr.exId}).n;
+  document.getElementById('prE1').textContent = `Estimated 1RM: ${fmtW(pr.e1rm)} · ${pr.weight}${unitLabel()} × ${pr.reps} @ RPE ${pr.rpe}`;
+  el.classList.add('on');
+}
+function closePr(){ const el=document.getElementById('prCelebrate'); if(el) el.classList.remove('on'); }
+
+/* Mobile More sheet */
+function openMoreSheet(){ document.getElementById('moreSheet').classList.add('open'); }
+function closeMoreSheet(){ document.getElementById('moreSheet').classList.remove('open'); }
+function prevSession(){
+  let mi=state.ui.mesoIdx, wi=state.ui.sessionWeek, di=state.ui.sessionDay;
+  di--;
+  if(di<0){ wi--; di = state.setup.days-1; }
+  if(wi<0){ mi--; wi=3; }
+  if(mi<0){ mi=0; wi=0; di=0; }
+  state.ui.mesoIdx=mi; state.ui.sessionWeek=wi; state.ui.weekIdx=wi; state.ui.sessionDay=di;
+  save(); renderToday();
+}
+function nextSession(){
+  let mi=state.ui.mesoIdx, wi=state.ui.sessionWeek, di=state.ui.sessionDay;
+  di++;
+  if(di>=state.setup.days){ di=0; wi++; }
+  if(wi>3){ wi=0; mi++; }
+  if(state.plan && mi>=state.plan.mesos.length){ mi=state.plan.mesos.length-1; wi=3; di=state.setup.days-1; }
+  state.ui.mesoIdx=mi; state.ui.sessionWeek=wi; state.ui.weekIdx=wi; state.ui.sessionDay=di;
+  save(); renderToday();
+}
+
+/* ---------- Log ---------- */
+function fillExDatalist(){
+  const dl = document.getElementById('exList');
+  dl.innerHTML = EX.map(e=>`<option value="${e.n}">`).join('');
+  const sel = document.getElementById('trendEx');
+  sel.innerHTML = EX.map(e=>`<option>${e.n}</option>`).join('');
+}
+function addLog(){
+  const date = document.getElementById('logDate').value || todayISO();
+  const name = document.getElementById('logEx').value.trim();
+  const weight = +document.getElementById('logWeight').value||0;
+  const reps = +document.getElementById('logReps').value||1;
+  const rpe = +document.getElementById('logRpe').value||null;
+  const sets = +document.getElementById('logSets').value||1;
+  const notes = document.getElementById('logNotes').value;
+  if(!name){ toast('Pick an exercise.'); return; }
+  if(!weight){ toast('Enter a weight.'); return; }
+  state.logs.unshift({id:uid(), date, ex:name, weight, reps, rpe, sets, notes});
+  save();
+  document.getElementById('logWeight').value=''; document.getElementById('logNotes').value='';
+  toast('Logged.'); renderLogHistory(); renderLogTrend();
+}
+function clearLogs(){ if(!confirm('Delete all logs?')) return; state.logs=[]; save(); renderLogHistory(); renderLogTrend(); }
+function deleteLog(id){ state.logs = state.logs.filter(l=>l.id!==id); save(); renderLogHistory(); renderLogTrend(); }
+function renderLogHistory(){
+  const q = (document.getElementById('histSearch').value||'').toLowerCase();
+  const rows = state.logs.filter(l=> !q || (l.ex+' '+l.notes).toLowerCase().includes(q)).map(l=>{
+    const e1 = l.rpe? estimatedOneRM(l.weight, l.reps, l.rpe) : null;
+    return `<tr>
+      <td>${l.date}</td><td>${escapeHtml(l.ex)}</td>
+      <td class="num">${l.sets}×${l.reps}</td>
+      <td class="num">${fmtW(l.weight)}</td>
+      <td class="num">${l.rpe??''}</td>
+      <td class="num">${e1?fmtW(e1):'—'}</td>
+      <td>${escapeHtml(l.notes||'')}</td>
+      <td><button class="btn ghost sm" onclick="deleteLog('${l.id}')">×</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('logTableWrap').innerHTML = rows
+    ? `<div class="scroll-x"><table>
+        <thead><tr><th>Date</th><th>Exercise</th><th class="num">S×R</th><th class="num">Weight</th><th class="num">RPE</th><th class="num">e1RM</th><th>Notes</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`
+    : `<div class="empty">No sets logged.</div>`;
+}
+function renderLogTrend(){
+  const ex = document.getElementById('trendEx').value;
+  const pts = state.logs.filter(l=>l.ex===ex && l.rpe)
+    .map(l=>({x:l.date, y:estimatedOneRM(l.weight,l.reps,l.rpe)}))
+    .sort((a,b)=>a.x<b.x?-1:1);
+  destroyChart('trend');
+  charts.trend = new Chart(document.getElementById('chTrend'), {
+    type:'line',
+    data:{ labels:pts.map(p=>p.x), datasets:[{label:ex+' e1RM', data:pts.map(p=>p.y),
+      borderColor:'#dc2626', backgroundColor:'#dc262633', tension:.2, pointRadius:3}]},
+    options:lineOpts(),
+  });
+}
+
+/* ---------- Nutrition ---------- */
+function renderNu(){
+  // Ensure phase is set
+  if(!state.nutrition.phase) state.nutrition.phase = defaultPhaseForGoal(state.setup.goal);
+  const phase = PHASE_BY_ID[state.nutrition.phase] || PHASE_BY_ID['lean-bulk'];
+  // Phase chips
+  document.getElementById('phaseChips').innerHTML = PHASES.map(p=>{
+    const active = p.id===state.nutrition.phase;
+    return `<span class="chip ${active?'active red':''}" onclick="setPhase('${p.id}')" title="${escapeAttr(p.desc)}">${p.name}</span>`;
+  }).join('');
+  document.getElementById('phaseDesc').innerHTML =
+    `<b>${phase.name}:</b> ${phase.desc} <span class="muted">(${phase.mult>1?'+':''}${Math.round((phase.mult-1)*100)}% of TDEE${helpIcon('TDEE')})</span>`;
+  document.getElementById('rateSub').textContent =
+    `Target: ${phase.target>0?'+':''}${phase.target.toFixed(1)}% bodyweight per week`;
+  document.getElementById('rateTracker').innerHTML = renderRateTracker(phase);
+
+  document.getElementById('nuKcal').value = state.nutrition.kcal;
+  document.getElementById('nuP').value = state.nutrition.p;
+  document.getElementById('nuC').value = state.nutrition.c;
+  document.getElementById('nuF').value = state.nutrition.f;
+  document.getElementById('nuTKcal').textContent = state.nutrition.kcal+' kcal';
+  document.getElementById('nuTP').textContent = state.nutrition.p+' g';
+  document.getElementById('nuTCF').textContent = state.nutrition.c+' / '+state.nutrition.f+' g';
+  document.getElementById('nuTKcalSub').textContent = phase.name + (phase.mult!==1?' · '+(phase.mult>1?'+':'')+Math.round((phase.mult-1)*100)+'% TDEE':' · maintenance');
+  document.getElementById('nuTPSub').textContent = (phase.target<-0.3?'~2.2 g/kg (cut)':'~2.0 g/kg');
+  document.getElementById('nuTCFSub').textContent = Math.round(phase.carbRatio*100)+'% kcal from carbs';
+  document.getElementById('nuDate').value = todayISO();
+  const rows = (state.nutrition.days||[]).map(d=>`<tr>
+    <td>${d.date}</td><td class="num">${d.bw??'—'}</td>
+    <td class="num">${d.kcal??'—'}</td><td class="num">${d.p??'—'}</td>
+    <td class="num">${d.c??'—'}</td><td class="num">${d.f??'—'}</td>
+    <td>${escapeHtml(d.notes||'')}</td>
+    <td><button class="btn ghost sm" onclick="deleteNu('${d.date}')">×</button></td>
+  </tr>`).join('');
+  document.getElementById('nuTableWrap').innerHTML = rows
+    ? `<div class="scroll-x"><table><thead><tr><th>Date</th><th class="num">BW</th><th class="num">Kcal</th><th class="num">P</th><th class="num">C</th><th class="num">F</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+    : `<div class="empty">No days logged yet.</div>`;
+  // BW chart
+  const pts = (state.nutrition.days||[]).filter(d=>d.bw).sort((a,b)=>a.date<b.date?-1:1);
+  destroyChart('bwn');
+  charts.bwn = new Chart(document.getElementById('chBw'), {
+    type:'line',
+    data:{ labels:pts.map(p=>p.date), datasets:[{label:'BW', data:pts.map(p=>p.bw),
+      borderColor:'#0a0a0a', backgroundColor:'#0a0a0a22', tension:.2, pointRadius:3}]},
+    options:lineOpts(),
+  });
+}
+function renderRateTracker(phase){
+  const days = (state.nutrition.days||[]).filter(d=>d.bw).slice().sort((a,b)=>a.date<b.date?-1:1);
+  if(days.length<3){
+    return `<div class="empty">Log your bodyweight for at least a week to see your weekly rate. The more days you log, the more accurate the trend.</div>`;
+  }
+  const recent = days.slice(-7);
+  const prior = days.slice(-14,-7);
+  const avgR = recent.reduce((a,b)=>a+b.bw,0)/recent.length;
+  if(prior.length<3){
+    return `<div class="grid c3">
+      <div><div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em">Current 7-day avg BW</div><div style="font-size:1.4rem;font-weight:700">${avgR.toFixed(1)} ${unitLabel()}</div></div>
+      <div><div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em">Weekly change</div><div style="font-size:1.4rem;font-weight:700;color:var(--muted)">Need 2 weeks</div></div>
+      <div><div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em">Target rate</div><div style="font-size:1.4rem;font-weight:700">${phase.target>0?'+':''}${phase.target.toFixed(1)}%/wk</div></div>
+    </div>
+    <div class="muted" style="font-size:.82rem;margin-top:8px">Keep logging — once you have ~2 weeks of bodyweight data the tracker will compare your actual rate against the target and suggest kcal adjustments.</div>`;
+  }
+  const avgP = prior.reduce((a,b)=>a+b.bw,0)/prior.length;
+  const deltaW = avgR - avgP;
+  const deltaPct = (deltaW / avgP) * 100;
+  const target = phase.target;
+  const diff = deltaPct - target;
+  let status='on track', color='green', suggest='Hold current kcal.';
+  // Tolerances: ±0.15% for bulks, ±0.2% for cuts, ±0.15% for maintain
+  const tol = target>0 ? 0.15 : (target<0 ? 0.2 : 0.15);
+  if(Math.abs(diff) > tol){
+    if(target > 0){
+      if(deltaPct < target - tol){
+        const bump = Math.round((target - deltaPct) * avgP * 7700 / 100 / 7 / 50) * 50;
+        status='Under target — bulking too slow'; color='yellow';
+        suggest=`Raise kcal by ~${Math.min(400,Math.max(100,bump))}/day, mostly from carbs.`;
+      } else {
+        const cut = Math.round((deltaPct - target) * avgP * 7700 / 100 / 7 / 50) * 50;
+        status='Gaining too fast — likely adding fat'; color='red';
+        suggest=`Drop kcal by ~${Math.min(400,Math.max(100,cut))}/day.`;
+      }
+    } else if(target < 0){
+      if(deltaPct > target + tol){
+        const cut = Math.round((deltaPct - target) * avgP * 7700 / 100 / 7 / 50) * 50;
+        status='Not losing fast enough'; color='yellow';
+        suggest=`Drop kcal by ~${Math.min(400,Math.max(100,cut))}/day or add 10–20 min cardio.`;
+      } else {
+        status='Losing too fast — risking muscle loss'; color='red';
+        suggest=`Raise kcal by ~150/day. Keep protein at 2.2 g/kg.`;
+      }
+    } else {
+      // maintenance
+      if(deltaPct > tol){ status='Drifting up'; color='yellow'; suggest='Drop kcal by ~100/day.'; }
+      else if(deltaPct < -tol){ status='Drifting down'; color='yellow'; suggest='Raise kcal by ~100/day.'; }
+    }
+  }
+  const arrow = deltaW>0?'↗':(deltaW<0?'↘':'→');
+  return `<div class="grid c3">
+    <div>
+      <div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em">Current 7-day avg BW</div>
+      <div style="font-size:1.4rem;font-weight:700">${avgR.toFixed(1)} ${unitLabel()}</div>
+      <div class="muted" style="font-size:.78rem">vs prior week ${avgP.toFixed(1)}</div>
+    </div>
+    <div>
+      <div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em">Weekly change</div>
+      <div style="font-size:1.4rem;font-weight:700">${arrow} ${deltaW>0?'+':''}${deltaW.toFixed(2)} ${unitLabel()}</div>
+      <div class="muted" style="font-size:.78rem">${deltaPct>0?'+':''}${deltaPct.toFixed(2)}% / week</div>
+    </div>
+    <div>
+      <div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em">Target rate</div>
+      <div style="font-size:1.4rem;font-weight:700">${target>0?'+':''}${target.toFixed(1)}%/wk</div>
+      <div class="muted" style="font-size:.78rem">${phase.name}</div>
+    </div>
+  </div>
+  <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span class="pill ${color}">${status}</span>
+    <span class="muted" style="font-size:.85rem">${suggest}</span>
+  </div>`;
+}
+
+function saveNu(){
+  state.nutrition.kcal = +document.getElementById('nuKcal').value||0;
+  state.nutrition.p = +document.getElementById('nuP').value||0;
+  state.nutrition.c = +document.getElementById('nuC').value||0;
+  state.nutrition.f = +document.getElementById('nuF').value||0;
+  save(); renderNu();
+}
+function addNuLog(){
+  const day = {
+    date: document.getElementById('nuDate').value||todayISO(),
+    bw: +document.getElementById('nuBw').value||null,
+    kcal: +document.getElementById('nuKcalLog').value||null,
+    p: +document.getElementById('nuPLog').value||null,
+    c: +document.getElementById('nuCLog').value||null,
+    f: +document.getElementById('nuFLog').value||null,
+    notes: document.getElementById('nuNotes').value||'',
+  };
+  state.nutrition.days.unshift(day); save(); toast('Saved.');
+  ['nuBw','nuKcalLog','nuPLog','nuCLog','nuFLog','nuNotes'].forEach(id=>document.getElementById(id).value='');
+  renderNu();
+}
+function deleteNu(date){ state.nutrition.days = state.nutrition.days.filter(d=>d.date!==date); save(); renderNu(); }
+function phaseLabel(){
+  const g = state.setup.goal;
+  if(g==='recomp') return 'Calorie deficit target';
+  if(g==='hypertrophy') return 'Slight surplus for growth';
+  if(g==='powerbuilding') return 'Maintenance / lean gain';
+  return '';
+}
+function autoMacros(){
+  const s = state.setup;
+  const phase = PHASE_BY_ID[state.nutrition.phase] || PHASE_BY_ID['lean-bulk'];
+  const bmr = s.sex==='Male'
+    ? 10*s.weight + 6.25*s.height - 5*s.age + 5
+    : 10*s.weight + 6.25*s.height - 5*s.age - 161;
+  const tdee = bmr * 1.55; // moderate activity default
+  const kcal = Math.round(tdee * phase.mult / 10) * 10;
+  // Protein: 2.2 g/kg in a cut to preserve muscle, 2.0 g/kg otherwise
+  const isCut = (phase.target < -0.3);
+  const pPerKg = isCut ? 2.2 : 2.0;
+  const p = Math.round(s.weight * pPerKg);
+  // Carbs: phase-specified share of kcal
+  const c = Math.max(50, Math.round((kcal * phase.carbRatio) / 4));
+  // Fat: remainder, but with a floor of ~0.7 g/kg for hormones
+  const fatFromRest = (kcal - p*4 - c*4) / 9;
+  const fatFloor = s.weight * 0.7;
+  const f = Math.max(Math.round(fatFloor), Math.round(fatFromRest));
+  state.nutrition.kcal = kcal; state.nutrition.p = p; state.nutrition.c = c; state.nutrition.f = f;
+  save(); renderNu(); toast('Macros set for ' + phase.name + '.');
+}
+function setPhase(id){
+  state.nutrition.phase = id; save();
+  autoMacros();
+}
+
+/* ---------- Tools ---------- */
+function renderRpeMatrix(){
+  const reps = Array.from({length:12},(_,i)=>i+1);
+  let html = '<thead><tr><th>RPE \\ Reps</th>'+reps.map(r=>`<th class="num">${r}</th>`).join('')+'</tr></thead><tbody>';
+  for(const rpe of RPE_LIST){
+    html += `<tr><th>${rpe}</th>`+reps.map(r=>{
+      const p = RPE_PCT[r][rpe]; const hl=(rpe===8&&r===5);
+      return `<td class="${hl?'hl':''}">${p.toFixed(1)}%</td>`;
+    }).join('')+`</tr>`;
+  }
+  document.getElementById('rpeMatrix').innerHTML = html + '</tbody>';
+}
+function renderRpeCalc(){
+  const oneRm = +document.getElementById('rpe1rm').value||0;
+  const reps = +document.getElementById('rpeReps').value||1;
+  const rpe = +document.getElementById('rpeRpe').value||8;
+  if(!oneRm){ document.getElementById('rpeResult').innerHTML = '<div class="empty">Enter your estimated 1RM.</div>'; return; }
+  const p = rpePct(reps,rpe);
+  const w = Math.round(oneRm*p/100/2.5)*2.5;
+  document.getElementById('rpeResult').innerHTML = `
+    <div class="card tight">
+      <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.1em">${reps} reps @ RPE ${rpe}</div>
+      <div class="num" style="font-size:1.6rem;font-weight:700">${fmtW(w)}</div>
+      <div class="muted" style="font-size:.78rem">= ${p.toFixed(1)}% of ${fmtW(oneRm)} 1RM</div>
+    </div>`;
+}
+function renderE1(){
+  const w = +document.getElementById('e1Weight').value||0;
+  const r = +document.getElementById('e1Reps').value||1;
+  const rpe = +document.getElementById('e1Rpe').value||10;
+  if(!w){ document.getElementById('e1Result').innerHTML=''; return; }
+  const e1 = estimatedOneRM(w,r,rpe);
+  document.getElementById('e1Result').innerHTML = `
+    <div class="card tight">
+      <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.1em">Estimated 1RM</div>
+      <div class="num" style="font-size:1.6rem;font-weight:700">${fmtW(e1)}</div>
+      <div class="muted" style="font-size:.78rem">${w}${unitLabel()} × ${r} @ RPE ${rpe} → ${rpePct(r,rpe).toFixed(1)}%</div>
+    </div>`;
+}
+function warmupLadder(working, bar, round){
+  bar = bar||20; round = round||2.5;
+  if(!working) return '<div class="muted">Type a working weight.</div>';
+  const stops=[
+    {pct:0,fixed:bar,reps:'8-10'},{pct:50,reps:'5'},{pct:65,reps:'3'},
+    {pct:75,reps:'2'},{pct:85,reps:'1'},{pct:92.5,reps:'1'},
+    {pct:100,reps:'work set',last:true},
+  ];
+  const rows = stops.map(s=>{
+    let w; if(s.fixed) w=s.fixed; else w = Math.round(working*(s.pct/100)/round)*round;
+    if(w>working) return null;
+    return `<tr ${s.last?'class="heavy"':''}><td class="num">${fmtW(w)}</td><td>${s.pct?fmtPct(s.pct):'bar'}</td><td>${s.reps}</td></tr>`;
+  }).filter(Boolean).join('');
+  return `<table><thead><tr><th class="num">Load</th><th>%</th><th>Reps</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function renderWarmup(){
+  document.getElementById('wuResult').innerHTML = warmupLadder(
+    +document.getElementById('wuWeight').value||0,
+    +document.getElementById('wuBar').value||20,
+    +document.getElementById('wuRound').value||2.5);
+}
+function renderPlate(){
+  const target = +document.getElementById('plW').value||0;
+  const bar = +document.getElementById('plBar').value||20;
+  const set = document.getElementById('plSet').value;
+  if(!target){ document.getElementById('plResult').innerHTML=''; return; }
+  const plates = set==='lb'?[45,35,25,10,5,2.5]:[25,20,15,10,5,2.5,1.25];
+  let perSide = (target - bar)/2;
+  if(perSide<=0){ document.getElementById('plResult').innerHTML = `<div class="empty">Target ≤ bar weight.</div>`; return; }
+  const out=[]; let left=perSide;
+  for(const p of plates){ while(left>=p-0.0001){ out.push(p); left -= p; } }
+  document.getElementById('plResult').innerHTML = `
+    <div class="card tight">
+      <div class="muted" style="font-size:.78rem">Per side (×2)</div>
+      <div style="font-size:1.05rem;font-weight:700">${out.length?out.join(' + '):'—'} ${set}</div>
+      <div class="muted" style="font-size:.78rem">Total: ${fmtW(bar + out.reduce((a,b)=>a+b,0)*2)}</div>
+    </div>`;
+}
+function renderTDEE(){
+  const sex = document.getElementById('tdSex').value;
+  const age = +document.getElementById('tdAge').value||30;
+  const w = +document.getElementById('tdWt').value||0;
+  const h = +document.getElementById('tdHt').value||0;
+  const act = +document.getElementById('tdAct').value||1.55;
+  const phase = +document.getElementById('tdPhase').value||1.0;
+  if(!w||!h){ document.getElementById('tdResult').innerHTML = '<div class="empty">Fill in weight + height.</div>'; return; }
+  const bmr = sex==='Male' ? 10*w + 6.25*h - 5*age + 5 : 10*w + 6.25*h - 5*age - 161;
+  const tdee = bmr*act;
+  const kcal = Math.round(tdee*phase/10)*10;
+  document.getElementById('tdResult').innerHTML = `
+    <div class="card tight">
+      <div class="muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.1em">Target kcal</div>
+      <div class="num" style="font-size:1.6rem;font-weight:700">${kcal}</div>
+      <div class="muted" style="font-size:.78rem">BMR ${Math.round(bmr)} · TDEE ${Math.round(tdee)}</div>
+    </div>`;
+}
+function renderOneRM(){
+  const w = +document.getElementById('oneWt').value||0;
+  const r = +document.getElementById('oneRp').value||1;
+  if(!w){ document.getElementById('oneResult').innerHTML=''; return; }
+  const epley = w*(1+r/30);
+  const brzycki = w*36/(37-r);
+  const lombardi = w*Math.pow(r, 0.10);
+  const avg = (epley+brzycki+lombardi)/3;
+  document.getElementById('oneResult').innerHTML = `
+    <div class="card tight">
+      <div class="muted" style="font-size:.78rem">Average 1RM (3 formulas)</div>
+      <div class="num" style="font-size:1.6rem;font-weight:700">${fmtW(avg)}</div>
+      <div class="muted" style="font-size:.78rem">Epley ${fmtW(epley)} · Brzycki ${fmtW(brzycki)} · Lombardi ${fmtW(lombardi)}</div>
+    </div>`;
+}
+
+/* ---------- Library ---------- */
+function renderLibrary(){
+  // populate muscle dropdown once
+  const sel = document.getElementById('libMuscle');
+  if(sel.options.length<=1) for(const m of MUSCLES) sel.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+  const q = (document.getElementById('libSearch').value||'').toLowerCase();
+  const m = document.getElementById('libMuscle').value;
+  const eq = document.getElementById('libEquip').value;
+  const tp = document.getElementById('libType').value;
+  const list = EX.filter(e=>
+    (!q || e.n.toLowerCase().includes(q)) &&
+    (!m || e.pri===m) &&
+    (!eq || e.equip===eq) &&
+    (!tp || e.type===tp)
+  );
+  document.getElementById('libCount').textContent = `${list.length} of ${EX.length}`;
+  let html = `<div class="scroll-x"><table>
+    <thead><tr><th>Exercise</th><th>Primary</th><th>Secondary</th><th>Equipment</th><th>Type</th></tr></thead><tbody>`;
+  for(const e of list){
+    html += `<tr>
+      <td><b>${e.n}</b></td>
+      <td><span class="pill red">${MNAME[e.pri]}</span></td>
+      <td>${(e.sec||[]).map(s=>`<span class="pill">${MNAME[s]}</span>`).join(' ')}</td>
+      <td><span class="pill blue">${e.equip}</span></td>
+      <td>${e.type}</td>
+    </tr>`;
+  }
+  html += '</tbody></table></div>';
+  if(list.length===0) html = `<div class="empty">No exercises match.</div>`;
+  document.getElementById('libBody').innerHTML = html;
+}
+
+/* ---------- Glossary ---------- */
+function renderGlossary(){
+  const sel = document.getElementById('glossCat');
+  if(sel.options.length<=1){
+    const cats = [...new Set(GLOSSARY.map(g=>g.cat))];
+    for(const c of cats) sel.innerHTML += `<option value="${c}">${c}</option>`;
+  }
+  const q = (document.getElementById('glossSearch').value||'').toLowerCase();
+  const cat = document.getElementById('glossCat').value;
+  const list = GLOSSARY.filter(g=>{
+    if(cat && g.cat!==cat) return false;
+    if(!q) return true;
+    return (g.term+' '+(g.full||'')+' '+g.short+' '+(g.def||'')).toLowerCase().includes(q);
+  });
+  // Group by category
+  const byCat = {};
+  for(const g of list){ (byCat[g.cat] = byCat[g.cat]||[]).push(g); }
+  let html = '';
+  if(list.length===0){ html = `<div class="empty">No terms match.</div>`; }
+  else for(const c of Object.keys(byCat)){
+    html += `<div class="gloss-cat">${c}</div>`;
+    for(const g of byCat[c]){
+      const id = 'term-'+g.term.toLowerCase().replace(/[^a-z0-9]/g,'-');
+      html += `<div class="gloss-card" id="${id}">
+        <div class="t">
+          <div>
+            <h4>${g.term}</h4>
+            ${g.full?`<div class="full">${g.full}</div>`:''}
+          </div>
+          <span class="pill">${g.cat}</span>
+        </div>
+        <div class="short">${g.short}</div>
+        ${g.def?`<div class="def">${g.def}</div>`:''}
+        ${g.ex?`<div class="ex"><b>Example:</b> ${g.ex}</div>`:''}
+        ${(g.see&&g.see.length)?`<div class="see">See also: ${g.see.map(t=>`<a onclick="scrollToTerm('${t}')">${t}</a>`).join(', ')}</div>`:''}
+      </div>`;
+    }
+  }
+  document.getElementById('glossBody').innerHTML = html;
+}
+function scrollToTerm(term){
+  goto('glossary');
+  setTimeout(()=>{
+    const id = 'term-'+String(term).toLowerCase().replace(/[^a-z0-9]/g,'-');
+    const el = document.getElementById(id);
+    if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.style.outline='2px solid var(--accent)'; setTimeout(()=>el.style.outline='', 1500); }
+  }, 60);
+}
+
+/* ---------- Setup ---------- */
+function renderSetup(){
+  const s = state.setup;
+  document.getElementById('sName').value = s.name;
+  document.getElementById('sUnits').value = s.units;
+  document.getElementById('sSex').value = s.sex;
+  document.getElementById('sAge').value = s.age;
+  document.getElementById('sWt').value = s.weight;
+  document.getElementById('sHt').value = s.height;
+  document.getElementById('sExp').value = s.exp;
+  document.getElementById('sStart').value = s.startDate;
+  document.getElementById('sDays').value = s.days;
+  document.getElementById('sDur').value = s.dur;
+  // Goal chips
+  document.getElementById('goalChips').innerHTML = GOALS.map(g=>
+    `<span class="chip ${g.id===s.goal?'active red':''}" onclick="setGoal('${g.id}')">${g.name}</span>`).join('');
+  document.getElementById('goalDesc').textContent = (GOALS.find(g=>g.id===s.goal)||{}).desc||'';
+  // Coach voice chips
+  const tones = [
+    {id:'encouraging', name:'Encouraging', desc:'Warm, positive, supportive.'},
+    {id:'direct', name:'Direct', desc:'No fluff. Just what to do.'},
+    {id:'scientific', name:'Scientific', desc:'Numbers and reasoning.'},
+    {id:'chill', name:'Chill', desc:'Low-key, no pressure.'},
+  ];
+  document.getElementById('toneChips').innerHTML = tones.map(t=>
+    `<span class="chip ${t.id===(s.coachTone||'encouraging')?'active red':''}" onclick="setTone('${t.id}')" title="${t.desc}">${t.name}</span>`).join('');
+  // Equipment chips
+  document.getElementById('equipChips').innerHTML = EQUIPMENT.map(e=>
+    `<span class="chip ${s.equipment.includes(e.id)?'active red':''}" onclick="toggleEquip('${e.id}')">${e.name}</span>`).join('');
+  // Priorities grid
+  let p = '<div class="muted" style="font-size:.72rem;display:grid;grid-template-columns:120px repeat(4,1fr);gap:6px;margin-bottom:4px"><div></div><div style="text-align:center">Priority</div><div style="text-align:center">Grow</div><div style="text-align:center">Maintain</div><div style="text-align:center">Skip</div></div>';
+  for(const m of MUSCLES){
+    const cur = s.priorities[m.id]||'maintain';
+    p += `<div class="prio">
+      <div class="nm">${m.name}</div>
+      <button class="${cur==='priority'?'sel-priority':''}" onclick="setPrio('${m.id}','priority')">★ Priority</button>
+      <button class="${cur==='grow'?'sel-grow':''}" onclick="setPrio('${m.id}','grow')">Grow</button>
+      <button class="${cur==='maintain'?'sel-maint':''}" onclick="setPrio('${m.id}','maintain')">Maintain</button>
+      <button class="${cur==='skip'?'sel-skip':''}" onclick="setPrio('${m.id}','skip')">Skip</button>
+    </div>`;
+  }
+  document.getElementById('prioGrid').innerHTML = p;
+  document.getElementById('unitLabel').textContent = s.units;
+}
+function saveSetup(){
+  const s = state.setup;
+  s.name = document.getElementById('sName').value;
+  s.units = document.getElementById('sUnits').value;
+  s.sex = document.getElementById('sSex').value;
+  s.age = +document.getElementById('sAge').value||30;
+  s.weight = +document.getElementById('sWt').value||80;
+  s.height = +document.getElementById('sHt').value||178;
+  s.exp = document.getElementById('sExp').value;
+  s.startDate = document.getElementById('sStart').value||todayISO();
+  s.days = +document.getElementById('sDays').value||4;
+  s.dur = +document.getElementById('sDur').value||24;
+  save();
+  document.getElementById('unitLabel').textContent = s.units;
+}
+function setGoal(g){ state.setup.goal=g; save(); renderSetup(); }
+function setTone(t){ state.setup.coachTone=t; save(); renderSetup(); toast('Coach voice: '+t); }
+function toggleEquip(id){
+  const arr = state.setup.equipment;
+  if(arr.includes(id)) state.setup.equipment = arr.filter(x=>x!==id);
+  else arr.push(id);
+  save(); renderSetup();
+}
+function setPrio(mid,val){ state.setup.priorities[mid]=val; save(); renderSetup(); }
+function generateAndOpen(){ generatePlan(); toast('Plan generated.'); renderAll(); goto('plan'); }
+function openSetup(){ goto('setup'); }
+
+/* ---------- Readiness modal ---------- */
+let _readyDraft = null;
+function openReady(){
+  // load today's existing reading or seed defaults
+  _readyDraft = readinessForToday() || { date:todayISO(), sleep:3, energy:3, stress:3, soreness:3, pain:false, painArea:'', notes:'' };
+  document.getElementById('readyModal').classList.add('open');
+  renderReady();
+}
+function closeReady(){ document.getElementById('readyModal').classList.remove('open'); }
+function setReady(field, val){
+  if(!_readyDraft) return;
+  if(field==='pain'){ _readyDraft.pain = !_readyDraft.pain; }
+  else if(field==='painArea'){ _readyDraft.painArea = val; }
+  else if(field==='notes'){ _readyDraft.notes = val; }
+  else _readyDraft[field] = val;
+  renderReady();
+}
+function renderReady(){
+  const r = _readyDraft || {};
+  const cell = (field, val, label, badAtLow)=>{
+    const sel = (r[field]==val) ? (badAtLow ? (val<=2?'sel-priority':val>=4?'sel':'sel') : 'sel') : '';
+    return `<button class="${sel}" onclick="setReady('${field}',${val})">${val}</button>`;
+  };
+  const row = (field, label, lo, hi, badAtLow=false)=>{
+    const val = r[field];
+    const rowCls = badAtLow ? (val<=2?'bad':val>=4?'good':'') : (val>=4?'good':val<=2?'bad':'');
+    let html = `<div class="ready-q"><div class="lbl">${label} <span class="v">${val}/5</span></div><div class="ready-row ${rowCls}">`;
+    for(let i=1;i<=5;i++){
+      const sel = (val===i)?'sel':'';
+      html += `<button class="${sel}" onclick="setReady('${field}',${i})">${i}</button>`;
+    }
+    html += `</div><div class="muted" style="font-size:.72rem;margin-top:4px;display:flex;justify-content:space-between"><span>${lo}</span><span>${hi}</span></div></div>`;
+    return html;
+  };
+  document.getElementById('readyBody').innerHTML = `
+    ${row('sleep','Sleep last night','Awful','Slept like a baby')}
+    ${row('energy','Energy right now','Drained','Buzzing')}
+    ${row('stress','Stress level','Calm','Fried', true)}
+    ${row('soreness','Overall soreness','None','Wrecked', true)}
+    <div class="ready-q">
+      <div class="lbl">Any pain to flag? <span class="v">${r.pain?'Yes':'No'}</span></div>
+      <div class="row">
+        <button class="btn ${r.pain?'':'ghost'} sm" onclick="setReady('pain',!r.pain)">${r.pain?'Yes — has pain':'No pain'}</button>
+        ${r.pain?`<input type="text" placeholder="e.g. left knee, low back…" value="${escapeAttr(r.painArea||'')}" oninput="setReady('painArea',this.value)" style="flex:1">`:''}
+      </div>
+    </div>
+    <div class="ready-q">
+      <textarea placeholder="Anything else (optional)…" oninput="setReady('notes',this.value)">${escapeHtml(r.notes||'')}</textarea>
+    </div>`;
+  const s = readinessScore(r);
+  let lbl = '—';
+  if(s!=null){
+    if(s>=8) lbl = `${s}/10 · Fresh — small bump available`;
+    else if(s>=7) lbl = `${s}/10 · Good — as prescribed`;
+    else if(s>=5) lbl = `${s}/10 · Average — loads trimmed ~5%`;
+    else if(s>=3) lbl = `${s}/10 · Low — loads trimmed ~10%, RPE capped`;
+    else lbl = `${s}/10 · Crashed — consider a rest day`;
+  }
+  document.getElementById('readyScore').textContent = `Readiness: ${lbl}`;
+}
+function saveReadiness(){
+  if(!_readyDraft) return closeReady();
+  _readyDraft.score = readinessScore(_readyDraft);
+  // Replace today's entry if it exists
+  state.readiness.days = (state.readiness.days||[]).filter(d=>d.date!==_readyDraft.date);
+  state.readiness.days.unshift(_readyDraft);
+  save();
+  closeReady();
+  renderToday();
+  toast(`Readiness saved: ${_readyDraft.score}/10`);
+}
+
+/* ---------- Missed session actions ---------- */
+function handleMissed(action, missed){
+  if(!missed) return;
+  if(action==='skip'){
+    state.skips[missed.key] = true; save();
+    toast(`Marked as skipped. Onward.`);
+  } else if(action==='reduce'){
+    // Reduce remaining sets this week by 1 per main exercise
+    if(state.plan && state.plan.mesos[missed.mi] && state.plan.mesos[missed.mi].weeks[missed.wi]){
+      const wk = state.plan.mesos[missed.mi].weeks[missed.wi];
+      for(const d of wk.days){
+        for(const it of d.items){
+          if(it.sets>2) it.sets -= 1;
+        }
+      }
+      state.skips[missed.key] = true; save();
+      toast(`Week's volume reduced. You're caught up.`);
+    }
+  } else if(action==='move'){
+    // Move the session forward to today: set ui to that day, mark current today's session skipped
+    state.ui.mesoIdx = missed.mi;
+    state.ui.sessionWeek = missed.wi;
+    state.ui.weekIdx = missed.wi;
+    state.ui.sessionDay = missed.di;
+    state.skips[missed.key] = true; save();
+    toast(`Picked up the missed session — same workout, today's date.`);
+  }
+  renderToday();
+}
+
+/* ---------- Onboarding ---------- */
+let obStepIdx = 0;
+function openOnboard(){ obStepIdx=0; document.getElementById('onboard').classList.add('open'); renderOnboard(); }
+function closeOnboard(){ state.onboarded=true; save(); document.getElementById('onboard').classList.remove('open'); }
+function obStep(d){
+  // If we're on the final step and the user clicks Next → finish and generate
+  if(d>0 && obStepIdx===2){
+    closeOnboard();
+    try { generatePlan(); } catch(e){ console.error(e); toast('Plan generation error — check Setup'); return; }
+    renderAll();
+    goto('plan');
+    toast('Plan generated.');
+    return;
+  }
+  obStepIdx = Math.max(0, Math.min(2, obStepIdx+d));
+  document.getElementById('obNext').textContent = (obStepIdx===2) ? 'Generate plan →' : 'Next →';
+  renderOnboard();
+}
+function renderOnboard(){
+  const s = state.setup;
+  const body = document.getElementById('onboardBody');
+  document.getElementById('obDots').textContent = ['●○○','○●○','○○●'][obStepIdx];
+  if(obStepIdx===0){
+    body.innerHTML = `
+      <h2>1. Your goal</h2>
+      <div class="toolbar">${GOALS.map(g=>`<span class="chip ${s.goal===g.id?'active red':''}" onclick="obSetGoal('${g.id}')">${g.name}</span>`).join('')}</div>
+      <div class="muted" style="font-size:.85rem">${(GOALS.find(g=>g.id===s.goal)||{}).desc||''}</div>
+      <hr/>
+      <div class="row">
+        <div class="field"><label>Days per week</label><select id="obDays" onchange="state.setup.days=+this.value;save()">
+          ${[3,4,5,6].map(n=>`<option value="${n}" ${s.days===n?'selected':''}>${n} days</option>`).join('')}</select></div>
+        <div class="field"><label>Plan length</label><select id="obDur" onchange="state.setup.dur=+this.value;save()">
+          <option value="12" ${s.dur===12?'selected':''}>3 months</option>
+          <option value="16" ${s.dur===16?'selected':''}>4 months</option>
+          <option value="24" ${s.dur===24?'selected':''}>6 months</option>
+        </select></div>
+      </div>`;
+  } else if(obStepIdx===1){
+    body.innerHTML = `
+      <h2>2. Your body & equipment</h2>
+      <div class="row">
+        <div class="field"><label>Sex</label><select onchange="state.setup.sex=this.value;save()">
+          <option ${s.sex==='Male'?'selected':''}>Male</option><option ${s.sex==='Female'?'selected':''}>Female</option></select></div>
+        <div class="field"><label>Age</label><input type="number" value="${s.age}" oninput="state.setup.age=+this.value;save()"></div>
+        <div class="field"><label>Weight</label><input type="number" value="${s.weight}" oninput="state.setup.weight=+this.value;save()"></div>
+        <div class="field"><label>Height (cm)</label><input type="number" value="${s.height}" oninput="state.setup.height=+this.value;save()"></div>
+        <div class="field"><label>Units</label><select onchange="state.setup.units=this.value;save()">
+          <option value="kg" ${s.units==='kg'?'selected':''}>kg</option>
+          <option value="lb" ${s.units==='lb'?'selected':''}>lb</option></select></div>
+      </div>
+      <h3 style="margin-top:8px">Equipment</h3>
+      <div class="toolbar" id="obEquip">${EQUIPMENT.map(e=>`<span class="chip ${s.equipment.includes(e.id)?'active red':''}" onclick="obToggleEquip('${e.id}')">${e.name}</span>`).join('')}</div>`;
+  } else {
+    body.innerHTML = `
+      <h2>3. Muscle priorities</h2>
+      <div class="muted" style="font-size:.85rem;margin-bottom:8px">Tag what you most want to grow. Priority muscles get the most weekly volume + specialization weeks.</div>
+      <div id="obPrio"></div>`;
+    let p=''; for(const m of MUSCLES){
+      const cur = s.priorities[m.id]||'maintain';
+      p += `<div class="prio">
+        <div class="nm">${m.name}</div>
+        <button class="${cur==='priority'?'sel-priority':''}" onclick="setPrio('${m.id}','priority');renderOnboard()">★ Priority</button>
+        <button class="${cur==='grow'?'sel-grow':''}" onclick="setPrio('${m.id}','grow');renderOnboard()">Grow</button>
+        <button class="${cur==='maintain'?'sel-maint':''}" onclick="setPrio('${m.id}','maintain');renderOnboard()">Maintain</button>
+        <button class="${cur==='skip'?'sel-skip':''}" onclick="setPrio('${m.id}','skip');renderOnboard()">Skip</button>
+      </div>`;
+    }
+    document.getElementById('obPrio').innerHTML = p;
+  }
+}
+function obSetGoal(g){ state.setup.goal=g; save(); renderOnboard(); }
+function obToggleEquip(id){ toggleEquip(id); renderOnboard(); }
+
+/* ---------- Export / Import / Reset ---------- */
+function exportData(){
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=`self-coached-os-${todayISO()}.json`; a.click();
+  URL.revokeObjectURL(url);
+}
+function importDataPrompt(){
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='application/json';
+  inp.onchange=()=>{ const f=inp.files[0]; if(!f) return;
+    const fr = new FileReader();
+    fr.onload=()=>{ try{ state = deepMerge(JSON.parse(JSON.stringify(defaultState)), JSON.parse(fr.result)); save(); renderAll(); toast('Imported.'); }catch(e){ toast('Bad file.'); } };
+    fr.readAsText(f);
+  };
+  inp.click();
+}
+function resetData(){ if(!confirm('Reset all data?')) return; state = JSON.parse(JSON.stringify(defaultState)); save(); renderAll(); toast('Reset.'); openOnboard(); }
+
+/* ---------- Boot ---------- */
+function renderAll(){
+  document.getElementById('logDate').value = todayISO();
+  document.getElementById('unitLabel').textContent = unitLabel();
+  fillExDatalist();
+  // Re-render whatever's open
+  goto(state.uiTab || 'dash');
+}
+document.querySelectorAll('nav.tabs button').forEach(b=> b.addEventListener('click', ()=>goto(b.dataset.tab)));
+
+renderAll();
+// Hide splash after the cold-start animation completes (~1.5s)
+setTimeout(()=>{
+  const sp = document.getElementById('splash');
+  if(sp){ sp.classList.add('gone'); setTimeout(()=>sp.remove(), 600); }
+  if(!state.onboarded || !state.plan){ openOnboard(); }
+}, 1500);
+
+/* ---------- PWA: install + service worker ---------- */
+let _installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _installPrompt = e;
+  const btn = document.getElementById('installBtn');
+  if(btn) btn.style.display = 'inline-flex';
+});
+window.addEventListener('appinstalled', () => {
+  _installPrompt = null;
+  const btn = document.getElementById('installBtn');
+  if(btn) btn.style.display = 'none';
+  toast('Installed. Find SC OS on your home screen.');
+});
+function isStandalone(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function isIOS(){
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+function openIosInstall(){ document.getElementById('iosInstall').classList.add('open'); }
+function closeIosInstall(){ document.getElementById('iosInstall').classList.remove('open'); }
+async function installApp(){
+  if(_installPrompt){
+    _installPrompt.prompt();
+    const { outcome } = await _installPrompt.userChoice;
+    if(outcome === 'accepted') toast('Installing…');
+    _installPrompt = null;
+    document.getElementById('installBtn').style.display = 'none';
+  } else if(isIOS()){
+    openIosInstall();
+  } else {
+    toast('Open this in Chrome / Edge / Safari to install.');
+  }
+}
+// Show install button on iOS too (no beforeinstallprompt there)
+if(isIOS() && !isStandalone()){
+  const btn = document.getElementById('installBtn');
+  if(btn) btn.style.display = 'inline-flex';
+}
+
+// Register service worker (only over http/https, not file://)
+if('serviceWorker' in navigator && location.protocol !== 'file:'){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(() => {
+      // ok
+    }).catch(err => console.warn('SW registration failed:', err));
+  });
+}
+</script>
+</body>
+</html>

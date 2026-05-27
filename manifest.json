@@ -1,0 +1,18 @@
+{
+  "name": "Self-Coached OS",
+  "short_name": "SC OS",
+  "description": "Goal-driven training, programming, tracking and a coach in your pocket.",
+  "start_url": "./self-coached-os.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fafafa",
+  "theme_color": "#0a0a0a",
+  "lang": "en",
+  "categories": ["fitness", "health", "lifestyle", "productivity"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
